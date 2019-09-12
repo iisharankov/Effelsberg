@@ -1,5 +1,6 @@
 # load additional Python module
 import socket
+import json
 
 # create TCP/IP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
