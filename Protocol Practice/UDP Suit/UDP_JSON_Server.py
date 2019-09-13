@@ -50,12 +50,12 @@ while True:
             returnmessage = str.encode("Hello back!")
             UDPServerSocket.sendto(returnmessage, address)
 
-        elif len(decodedmessage) >= 8:
+        elif len(decodedmessage) > 12:
             print("Client message was long")
             returnmessage = str.encode("You wrote a lot")
             UDPServerSocket.sendto(returnmessage, address)
 
-        elif len(decodedmessage) <= 8:
+        elif len(decodedmessage) < 4:
             print("Client message was short")
             returnmessage = str.encode("Is that all you can write?")
             UDPServerSocket.sendto(returnmessage, address)

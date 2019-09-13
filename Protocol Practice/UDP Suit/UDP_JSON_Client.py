@@ -21,7 +21,8 @@ msg = "Message from Server: {}".format(msgFromServer[0].decode())
 print(msg)
 
 # While loop for user to continuously send messages to Server
-while True:
+flag = True
+while flag:
 
     userReply = input("Type 'Yes' to send JSON package, 'No' to send "
                       "another message, or 'Close' to close the socket ")
@@ -31,8 +32,6 @@ while True:
         print('Sending JSON file to the server')
         userJSONMessage =  json.dumps(humanData)
         UDPClientSocket.sendto(str.encode(userJSONMessage), (localIP, 12345))
-        UDPClientSocket.close()
-        break
         # Checks if a return message was received from Server and decodes it
         # serverResponse = UDPClientSocket.recvfrom(buffersize)
         # NewMsgFromServer = serverResponse[0].decode('utf-8')
@@ -52,11 +51,18 @@ while True:
         # "No Reply" is used since IDK how to have the Server not send a message
         # back for certain messages without the Client hanging and waiting forever
         if NewMsgFromServer == "No Reply":
+            print("no server reply")
             pass  # If "no reply", then client knows to ignore waiting 4 a reply
         else:
             msg = "Message from Server: {}".format(NewMsgFromServer)
             print(msg)  # Otherwise the message is of importance and printed
+
     elif userReply.lower() == 'close':
+        print("Closing connection to server")
+        flag = False
+
+UDPClientSocket.close()
+
 
 
 
