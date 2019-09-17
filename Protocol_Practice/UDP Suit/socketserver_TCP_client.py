@@ -1,11 +1,9 @@
 import socket
 import sys
 
-HOST, PORT = "localhost", 9999
-
-# Create a socket (SOCK_STREAM means a TCP socket)
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect((HOST, PORT))
+# destination_address = ("localhost", 9999)
+destination_address = ('localhost', 9999)
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 flag = True
 while flag:
@@ -13,10 +11,11 @@ while flag:
 
     if data.lower() == "close":
         flag = False
+        print("closing client")
         break
 
     # Connect to server and send data
-    sock.sendall(str.encode(data + "\n"))
+    sock.sendto(str.encode(data + "\n"), destination_address)
 
     # Receive data from the server
     received = sock.recv(***REMOVED***)
