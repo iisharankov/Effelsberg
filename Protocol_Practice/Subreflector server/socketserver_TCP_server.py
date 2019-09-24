@@ -1,14 +1,74 @@
 import socketserver
 import threading
+import logging
 import socket
 import struct
 import time
 import json
 import re
 
-
 dict = {}
 
+
+def add_variable(variable_name, value):
+    """
+    :param variable_name: str - name of the variable user wants to add to JSON
+    :param value: str - value of variable in a string. Read below.
+    :return: str- Message to return to user. Function also adds value to global
+                  json dictionary
+
+    Above we grabbed both sides of the equal sign (variable_name and value),
+    but we don't know what the type is of the value. Of course it's a string,
+    as that's what input returns, but maybe they input "7" and meant the int 7,
+    or "7.0" as a float, or "[2, 3]" as a list. if we type("[2, 3]") we get a
+    string, not a list. This can be solved weakly with many if statements.
+    Instead, we use the below line to set up variable_name and value into a
+    string that has the *exact* format needed to parse it into a temporary JSON.
+    Basically, we use a temp JSON to serialize the value, and the serialization
+    will calculate the correct type for the value (int, str, float, bool, list),
+    then we index the tempjson for the one value it has, and this time instead
+    of getting '"7"' (a string with a 7 in it), we get '7' (the int 7). Now we
+    have the true value and the variable_name, and we can use this to put the
+    real value into the final JSON object.
+    """
+
+    # Rplaces single quotes with double quotes from the value var.
+    value = value.replace("'", '"')
+    # I'm amazed ('"', "'")  does not violate PEP-8...
+
+    # Sets up the variable_name and value (both strings)  into a larger string
+    # of the correct format to parse into a json.loads
+    data = '{' + '"' + variable_name + '":' + value + '}'
+
+    # Now load this correct data string into a tempjson
+    # Todo: add a try-except on loads for bad values like one quote not two used
+    tempjson = json.loads(data)  # this will serialize the value
+
+    # Now call the value of the variable_name in the JSON jsondict
+    true_value = tempjson[variable_name]
+    print(f'Value of {variable_name} is "{true_value}" and the type of the '
+          f'value is {type(true_value)}')
+
+    # Now add to the real dictionary the true_value and variable_name!
+    dict[variable_name] = true_value
+    msg = f"Variable {variable_name} set to {true_value}"
+    return msg
+    # And like that, we found the true type() of the contents of a string
+
+
+def return_variable(requested_var):
+    if requested_var in dict:
+        print(requested_var)
+        # TODO Bug: this next line fails for returning lists, unhashable
+        msg = 'The set value for {} is ' \
+              '{}'.format(requested_var, {dict[requested_var]})
+        return msg
+    else:
+        msg = f"{requested_var} was not found/was never set"
+        return msg
+
+
+# Communication class
 class MyUDPHandler(socketserver.BaseRequestHandler):
     """
     The request handler class the server.
@@ -20,103 +80,47 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         # self.request is the UDP connected to the client
-        # print(self.request)
 
         # takes message, decodes to string and - all whitespace (by rejoining)
-        self.telnet_msg = ''.join(self.request[0].decode('utf-8').
-                                  lower().split())
+        telnet_msg = ''.join(self.request[0].decode('utf-8').lower().split())
 
-        socket = self.request[1]
         cur_thread = threading.current_thread()
-        print("{} wrote this on thread {}".format(self.client_address[0],
-                                                  cur_thread.name))
-        print(self.telnet_msg)
-        if self.telnet_msg.startswith('variable:'):
-            self.telnet_msg = self.telnet_msg.replace('variable:', '')
+        print(f"{self.client_address[0]} wrote this on "
+              f"thread {cur_thread.name}")
+
+        if telnet_msg.startswith('variable:'):
+            telnet_msg = telnet_msg.replace('variable:', '')
 
             try:
-                # self.telnet_msg is in form "variable=value" or "variable", so
+                # telnet_msg is in form "variable=value" or "variable", so
                 # check there is one or no "=" signs
-                assert self.telnet_msg.count("=") <= 1
+                assert telnet_msg.count("=") <= 1
+
             except AssertionError:
-                msg = "More than one equals sign in message"
+                msg = "More than one equals sign in message. Don't assert."
 
             else:
                 # If 1 =  sign, then we know something is being set
-                if self.telnet_msg.count("=") == 1:
-                    
+                if telnet_msg.count("=") == 1:
                     # Replace = with : to parse into temp JSON
-                    # self.telnet_msg = self.telnet_msg.replace('=', ':')
-                    varName, value = self.telnet_msg.split('=', 1)
-
-                    """
-                    This is a clever trick. Above we grabbed both sides of the 
-                    equal sign (varName and value). But we don't know what the 
-                    type is of the value. Of course it's a string, as that's 
-                    what input returns, but maybe they input "7" and meant the 
-                    int 7, or "7.0" as a float, or "[2, 3]" as a list. if we 
-                    type("[2, 3]") we get a string, not a list. This can be 
-                    solved weakly with many if statements. Instead, we 
-                    use the below line to set up varName and value into a
-                    string that has the *exact* format needed to parse it into a
-                    temporary JSON. Basically, we use a temp JSON to serialize
-                    the value, and the serialization will calculate the correct
-                    type for the value (int, str, float, bool, list), then we 
-                    index the tempjson for the one value it has, and this time
-                    instead of getting '"7"' (a string with a 7 in it), we get 
-                    '7' (the int 7). Now we have the true value and the 
-                    varName, and we can use this to put the real value into
-                    the final JSON object!
-                    """
-
-                    # This line replaces single quotes with double quotes from
-                    # the value variable. This means either input will work
-                    value = value.replace("'", '"')
-                    # I'm amazed ('"', "'")  does not violate PEP-8...
-
-                    # The ugly line that sets up the varName and value (both
-                    # strings) into a larger string of the correct format
-                    data = '{' + '"' + varName + '":' + value + '}'
-                    # I'm also curious how this violates PEP-8 too...
-
-                    # Now load this correct data string into a tempjson
-                    # Todo: add a try-except on loads for bad values
-                    tempjson = json.loads(data)  # this will serialize the value
-                    
-                    # Now call the value of the varName in the JSON dict
-                    true_value = tempjson[varName]
-                    print(f'Value of {varName} is "{true_value}" and the type '
-                          f'of the value is {type(true_value)}')
-                    
-                    # Now add to the real dictionary the true_value and varName!
-                    dict[varName] = true_value
-                    msg = f"Variable {varName} set to {true_value}"
-                    # And like that, we found the true type() of the
-                    # contents of a string
-
-                # if no "=" sign, then user is asking for value of varName given
+                    variable_name, value = telnet_msg.split('=', 1)
+                    msg = add_variable(variable_name, value)
+                   
+                # if no "=" sign, then user wants value of variable_name given
                 else:
-                    assert self.telnet_msg.count("=") == 0
-                    varName = self.telnet_msg
-                    if varName in dict:
-                        print(varName)
-                        # TODO Bug: this next line fails for returning lists, 
-                        # unhashable
-                        msg = 'The set value for {} is ' \
-                              '{}'.format(varName, {dict[varName]})
-                    else:
-                        msg = f"{varName} was not found/was never set"
+                    assert telnet_msg.count("=") == 0  # Should never fail
+                    msg = return_variable(telnet_msg)
 
         # Called if user wants to see full JSON object
-        elif self.telnet_msg == 'returnvariables':
+        elif telnet_msg == 'returnvariables':
             msg = json.dumps(dict)
             print(msg)
         
         # Checks if the telnet_msg is in the multicast strings
-        elif self.telnet_msg in multicastdata:  # == 'mjuld':
+        elif telnet_msg in multicastdata:
 
             # Finds the location of the variable in the multicast message
-            loc = multicastdata.find(self.telnet_msg)
+            loc = multicastdata.find(telnet_msg)
             multicast_var = (multicastdata[loc:loc+50])
 
             # Format to remove everything after comma, and remove a quote
@@ -125,10 +129,12 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
 
         # Invalid input by user
         else:
-            msg = f"{self.telnet_msg} is not a valid input or not recognized"
+            msg = f"{telnet_msg} is not a valid input or not recognized"
 
         # Message to return to client
-        socket.sendto(msg.encode(), self.client_address)
+        print(f"Sending message: {msg}")
+        returnsocket = self.request[1]
+        returnsocket.sendto(msg.encode(), self.client_address)
 
     def finish(self):
         pass
@@ -172,38 +178,3 @@ if __name__ == "__main__":
         # Activate the server; this will keep running until you
         # interrupt the program with Ctrl-C
         server.serve_forever()
-
-'''
-Part two will be harder. Go into sdh.py (/opt/operatorguis/VMEDisplay/sdh.py)
-where just under the GUI section line you have a line (third one) that says 
-'mjuld', this is julian date format or something of the sort. He only cared
-for this one (proof of concept) but try with all three time vars. Somehow he 
-wanted to "connect to the existing JSON" in sdh.py which is on port 1602 and 
-read those values from it into your
-server via "multicast cousnn" (box illegible), this then can be set as a 
-common vairable that can also become a JSON through "multicast server". I
-Don't understand why multicsting is needed as a middle step here between having
-the common variables and putting them in the JSON, but maybe I can read up on 
-what multicasting ACTUALLY is and how it would pertin to this situation. obvs
-it's about sending to multiple clients at once, but why did he want it here?           
-'''
-
-
-# Old method
-# try:
-#     pass
-#     # if value in ['true', 'false']:
-#     #     value = bool(value)
-#     # elif value in ['none', 'null']:
-#     #     value = None
-#     # elif re.search('[a-z]', value):
-#     #     value = str(value)
-#     # elif bool(re.match('^[0-9]+$', value)):
-#     #     value = int(value)
-#     # elif bool(re.match("^\d+?\.\d+?$", value)):
-#     #     value = float(value)
-#     # else:
-#     #     flag = True
-# except Exception as err:
-#     print(err, " \n User gave type not found in conversion")
-# finally:
