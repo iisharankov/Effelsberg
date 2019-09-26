@@ -12,11 +12,11 @@ class MTCommand:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((TCP_IP, TCP_PORT))
 
-    def sendCommand(self,command):
+    def send_command(self,command):
         self.sock.send(command)
     '''
     So he wants this to be rewritten and cleaned up
-    it's probably not correct
+    may not be correct!
     now, midnight, seconds is used to make a unique identifier
     start and end flags are explained in the code
     make sure the length of dataLen is correct. 
@@ -26,30 +26,56 @@ class MTCommand:
     Defined in page 6 and 7 in EFB_SPE documentation 
     
     '''
-    def encapsulateCommand(self,command):
+    def encapsulate_command(self, command):
         now = datetime.datetime.now()
         midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        seconds = (now - midnight).seconds
-        startflag=0xdfccf1a
-        endflag=0xa1fccfd1
-        dataLen=len(command)+4*8
-        s= struct.pack("QllsQ",startflag,dataLen,seconds,command,endflag)
-        return s
+        seconds = (now - midnight).seconds # len of 5 - no milliseconds
+        startflag = 0xDFCCF1A
+        endflag = 0xA1FCCFD1
 
-    def setMTElevation(self,elevation):
-        cmd_il=106
-        mode=2000
-        reserve=0.0
-        s= struct.pack("Iidd",cmd_il,mode,elevation,reserve)
-        return s
+        cmd_il, mode, elevation, reserve = command
 
-    def activateMT(self):
-        cmd_il=106
-        mode=2
-        elevation=0.0
-        reserve=0.0
-        s= struct.pack("Iidd",cmd_il,mode,elevation,reserve)
-        return s
+        starflag_len = 4
+        dataLen_len = 4
+        seconds_len = 4
+        cmd_il_len = 4
+        mode_len = 2
+        elevation_len = 8
+        reserve_len = 8
+        endflag_len = 4
+
+        dataLen = starflag_len + dataLen_len + seconds_len + \
+                  cmd_il_len + mode_len + elevation_len + \
+                  reserve_len + endflag_len
+        # Flags are long long (len 8), but dataLen and seconds are long (len 4)?
+        s = struct.pack("LiiihddL", startflag, dataLen, seconds,
+                        cmd_il, mode, elevation, reserve, endflag)
+        self.send_command(s)
+
+    def set_mt_elevation(self, elevation):
+        cmd_il = 106  # 4
+        mode = 2000  # 4
+        reserve = 0.0  # 8
+        data = (cmd_il, mode, elevation, reserve)
+        self.encapsulate_command(data)
+
+    def activate_mt(self):
+        cmd_il = 106
+        mode = 2
+        elevation = 0.0
+        reserve = 0.0
+        # s = struct.pack("Iidd", cmd_il, mode, elevation, reserve)
+        data = (cmd_il, mode, elevation, reserve)
+        self.encapsulate_command(data)
+
+    def deactivate_mt(self):
+        cmd_il = 106
+        mode = 1
+        elevation = 0.0
+        reserve = 0.0
+        # s =  struct.pack("Iidd", cmd_il,  mode, elevation, reserve)
+        data = (cmd_il, mode, elevation, reserve)
+        self.encapsulate_command(data)
 
     def close(self):
         self.sock.close()
