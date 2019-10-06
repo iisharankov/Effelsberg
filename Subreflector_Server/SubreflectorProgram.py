@@ -8,7 +8,6 @@ import json
 # import MT_Subreflector.SubreflectorClient
 # import MT_Subreflector.MTCommand
 
-dict_ = {}  # Temporary, will get to this fix later
 
 def main():
 
@@ -16,9 +15,8 @@ def main():
                         format='%(asctime)s - %(levelname)s- %(message)s',
                         datefmt='%d-%b-%y %H:%M:%S')
 
+    logging.debug("Starting InputCommands instance")
     InputCommands().user_input()
-
-
 
 
 # Communication class
@@ -33,31 +31,31 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         # self.request is the UDP connected to the client
-        logging.debug("Message received from udp-telnet")
+        logging.debug("Telnet: Message received from udp-telnet")
         # takes message, decodes to string and - all whitespace (by rejoining)
         telnet_msg = ''.join(self.request[0].decode('utf-8').lower().split())
         # cur_thread = threading.current_thread()
         # print(f"{self.client_address[0]} wrote this on #{cur_thread.name}")
 
-        logging.debug("Sending message to CommandModule")
-        command = TelnetCommandModule(telnet_msg)
+        logging.debug("Telnet: Sending message to CommandModule")
+        command = TelnetCommandParser(telnet_msg)
         msg = command.return_message()
-        logging.debug("Message returned from CommandModule")
+        logging.debug("Telnet: Message returned from CommandModule")
 
         # Message to return to client
         # print(f"Sending message: {msg}")
 
-        logging.debug("Setting up returnsocket")
+        logging.debug("Telnet: Setting up returnsocket")
         returnsocket = self.request[1]
         returnsocket.sendto(msg.encode(), self.client_address)
-        logging.debug("Message sent back to udp-telnet client")
+        logging.debug("Telnet: Message sent back to udp-telnet client")
 
     def finish(self):
         pass
         # print("End of message.")
 
 
-class TelnetCommandModule:
+class TelnetCommandParser:
     """
     Instantiating this class takes a string and parses it to return the correct
     response to the user
@@ -79,6 +77,9 @@ class TelnetCommandModule:
 
         elif self.command.startswith('returnvariables'):
             self.return_variables_in_json()
+
+        elif self.command.startswith('clearvariables'):
+            self.clear_variables()
 
         elif self.command in self.multicastdata:
             self.multicast_variable()
@@ -123,6 +124,12 @@ class TelnetCommandModule:
             string = f"{self.command} was not found/was never set"
             self.set_message(string)
 
+    def clear_variables(self):
+        print('Clearing variables')
+        dict_.clear()
+        string = "All the variables were cleared"
+        self.set_message(string)
+
     def return_variables_in_json(self):
         string = json.dumps(dict_)
         self.set_message(string)
@@ -143,53 +150,83 @@ class TelnetCommandModule:
     def return_message(self):
         return self.msg
 
-class InputCommands():
+
+class InputCommands:
 
     def __init__(self):
         self.command = ''
         self.telnetrunning = True
         self.server = None
+        logging.debug("InputCommands initialized")
 
     def user_input(self):
         self.command = ''.join(input("Input command: ").lower().split())
-        self.probe_input()
+        try:
+            self.probe_input()
+        except Exception as Er:
+            print(Er)
+            logging.exception("An error occurred while executing probe_input")
 
     def probe_input(self):
-        if self.command in ['help', '-help', '--help', '-h', '--h']:
-            string = "these are the things you can do: "
+        if self.command in ['help', '-help', '--help', '-h', '--h', 'h']:
+            string = "These are the things you can do: "
             print(string)
 
-        elif self.command in ['startudptelnet', 'startudp_telnet', 'udptelnet']:
+        elif self.command in ['startudptelnet', 'starttelnet']:
             self.start_udp_telnet()
 
         elif self.command in ['closeudptelnet', 'closetelnet']:
             self.stop_udp_telnet()
 
         elif self.command == 'telnetstatus':
-            self.reutrn_telnet_status()
+            boolstatus = self.return_telnet_status()
+            if boolstatus:
+                print('Telnet active')
+            else:
+                print('Telnet disabled')
+
+        elif self.command in ['break', 'end', 'close']:
+            self.close_sr_program()
+
+        elif self.command == 'telnetport':
+            print(f"The udp_telnet port is {UDPTELNET_PORT}")
+
+        elif self.command == 'sdhport':
+            print(f"The SDH port is {SDH_PORT}")
+
+        elif self.command == 'subreflectorport':
+            print(f"The subreflector read port is {SUBREF_READ_PORT}")
+            print(f"The subreflector write port is {SUBREF_WRITE_PORT}")
 
         else:
-            string = 'Unrecignized input. The possible commands are:'
+            string = 'Unrecignized input. Type "help" for possible commands:'
             print(string)
 
         self.user_input()
 
     def start_udp_telnet(self):
-        dest_address = (LOCAL_ADDRESS, UDPTELNET_PORT)
-        logging.debug("Starting ThreadingUDPServer")
+        if self.return_telnet_status():
+            print("udp_telnet is already active")
+        else:
+            try:
+                dest_address = (LOCAL_ADDRESS, UDPTELNET_PORT)
+                logging.debug("Starting ThreadingUDPServer")
 
-        self.server = ThreadingUDPServer(dest_address, MyUDPHandler)
-        ip, port = self.server.server_address
+                self.server = ThreadingUDPServer(dest_address, MyUDPHandler)
 
-        # Start a thread with the server -- that thread will then
-        # start one more thread for each request
-        server_thread = threading.Thread(target=self.server.serve_forever)
-        # Exit the server thread when the main thread terminates
-        server_thread.daemon = True
-        logging.debug("daemon set to True")
+                # Start a thread with the server -- that thread will then
+                # start one more thread for each request
+                server_thread = threading.Thread(target=
+                                                 self.server.serve_forever)
+                # Exit the server thread when the main thread terminates
+                server_thread.daemon = True
+                server_thread.start()
+                logging.debug("daemon set to True")
 
-        server_thread.start()
-        print("Server loop running in thread:", server_thread.name)
+                print("Server loop running in thread:", server_thread.name)
+            except Exception as Er:
+                print(Er)
+                logging.exception("Exception starting telnet occurred")
 
 
     def stop_udp_telnet(self):
@@ -201,17 +238,24 @@ class InputCommands():
         else:
             print("UDP-Telnet already shutdown")
 
-
-    def reutrn_telnet_status(self):
+    def return_telnet_status(self):
         if self.server:
-            print("Active")
+            return True
         elif not self.server:
-            print("Not active")
+            return False
 
-
-
-class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
-    pass
+    def close_sr_program(self):
+        doublecheck = ''.join(input("Do you want to close? ").lower().split())
+        if doublecheck == 'yes':
+            print("Closing Subreflector Program")
+            if self.return_telnet_status():
+                self.stop_udp_telnet()
+            exit()
+        elif doublecheck == 'no':
+            self.user_input()
+        else:
+            print("Unrecognized command. Say 'yes' or 'no'")
+            self.close_sr_program()
 
 
 def add_variable(variable_name, value):
@@ -260,34 +304,41 @@ def add_variable(variable_name, value):
     # And like that, we found the true type() of the contents of a string
 
 
+class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
+    pass
+
 def sdh_multicast():
     # Currently this opens a multicast port just to get the multicastdata
     # and then closes to save the resource. Can change to always open if needed
-    logging.debug("sdh_multicast request made, opening sdh socket")
+    logging.debug("SDH_Multicast: sdh_multicast request made, opening sdh socket")
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
 
-        logging.debug("sdh socket created, binding to server address")
-        server_address = ('', SDH_PORT_READING)  # sdh json
+        logging.debug("SDH_Multicast: sdh socket created, "
+                      "binding to server address")
+        server_address = ('', SDH_PORT)  # sdh json
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(server_address)
-        logging.debug("Bound to server address, listening for message")
+        logging.debug("SDH_Multicast: Bound to server address, "
+                      "listening for message")
 
         group = socket.inet_aton(MULTICAST_GROUP)
         mreq = struct.pack('4sL', group, socket.INADDR_ANY)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-        multicastdata_bytes, address = sock.recvfrom(300000)
+        multicastdata_bytes, address = sock.recvfrom(300_000)
 
-        logging.debug("Multicast data received, closing sdh socket "
-                      "and returning multicast data")
+        logging.debug("SDH_Multicast: Multicast data received, closing "
+                      "sdh socket and returning multicast data")
         return str(multicastdata_bytes)
 
 
 if __name__ == "__main__":
-
     # Constants
     UDPTELNET_PORT = ***REMOVED***
-    SDH_PORT_READING = 1602
+    SDH_PORT = 1602
+    SUBREF_READ_PORT = ***REMOVED***
+    SUBREF_WRITE_PORT = ***REMOVED***
     LOCAL_ADDRESS = '***REMOVED***'
     MULTICAST_GROUP = ***REMOVED***
+    dict_ = {}  # Temporary, will get to this fix later
 
     main()
