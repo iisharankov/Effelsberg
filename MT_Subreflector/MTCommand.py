@@ -30,26 +30,29 @@ class MTCommand:
         now = datetime.datetime.now()
         midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
         seconds = (now - midnight).seconds # len of 5 - no milliseconds
-        startflag = 0xDFCCF1A
+        startflag = 0x1DFCCF1A
         endflag = 0xA1FCCFD1
 
+        # Todo: this should unpack no matter length, not just 4 long
         cmd_il, mode, elevation, reserve = command
 
-        starflag_len = 4
-        dataLen_len = 4
-        seconds_len = 4
-        cmd_il_len = 4
-        mode_len = 2
-        elevation_len = 8
-        reserve_len = 8
-        endflag_len = 4
+        # starflag_len = 4
+        # dataLen_len = 4
+        # seconds_len = 4
+        # cmd_il_len = 4
+        # mode_len = 2
+        # elevation_len = 8
+        # reserve_len = 8
+        # endflag_len = 4
 
-        dataLen = starflag_len + dataLen_len + seconds_len + \
-                  cmd_il_len + mode_len + elevation_len + \
-                  reserve_len + endflag_len
+        # dataLen = starflag_len + dataLen_len + seconds_len + \
+        #           cmd_il_len + mode_len + elevation_len + \
+        #           reserve_len + endflag_len
+        dataLen = 48
         # Flags are long long (len 8), but dataLen and seconds are long (len 4)?
         s = struct.pack("LiiihddL", startflag, dataLen, seconds,
                         cmd_il, mode, elevation, reserve, endflag)
+        print(s.__sizeof__())
         self.send_command(s)
 
     def set_mt_elevation(self, elevation):
@@ -75,6 +78,20 @@ class MTCommand:
         reserve = 0.0
         # s =  struct.pack("Iidd", cmd_il,  mode, elevation, reserve)
         data = (cmd_il, mode, elevation, reserve)
+        self.encapsulate_command(data)
+
+    def irig_b_system(self, fashion_value, time_offset_mode=3):
+        try:
+            assert time_offset_mode == 3 or time_offset_mode == 4
+        except Exception as E:
+            print(E)
+            print("Error, time_offset_mode (second entry) should be 3 or 4")
+
+        cmd_time = 107
+        fashion = fashion_value
+        time_offset = time_offset_mode
+        reserve = 0.0
+        data = (cmd_time, fashion, time_offset, reserve)
         self.encapsulate_command(data)
 
     def close(self):
