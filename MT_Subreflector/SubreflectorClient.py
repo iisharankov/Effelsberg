@@ -32,10 +32,20 @@ def decode_struct(data):
 
 
 def main():
+    """
+
+    :return:
+    """
+
+    # Sets up multicast socket for later use
+    multicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    multicast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
+
+    # Creates socket that recvs from subreflector
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.connect((SUBREF_ADDR, SUBREF_PORT))
         sock.settimeout(2)
-        sock.send(b"\n")
+        sock.send(b"\n")  # Initial message is needed to start stream
         full_msg = b''
         while 1:
             try:
@@ -44,7 +54,13 @@ def main():
                 print(f"data received for length {len(data)}")
             except socket.timeout:
                 print("Socket timed out, no message receved")
-                mainn()
+                # TODO: Case for no pickled data to pass to mainn
+                try:
+                    unpickled_obj = pickle.load(
+                        open("Pickled_Subreflector_Output.p", "rb"))
+                    status_message = package_msg(unpickled_obj)
+                except FileNotFoundError:
+                    pass
             # msg is 1760 long, but sent in groups of ***REMOVED*** nd 736. Usually the
             # server sends the 736 first, but that would put the data in the
             # wrong order, so it's deleted.
@@ -55,50 +71,60 @@ def main():
 
 
                 if len(full_msg) >= 1760:
-                    print("Full length reached")
+                    # print("Full length reached")
+                    #
+                    # pickle.dump(full_msg, open("Pickled_Subreflector_Output.p",
+                    #                            "ab"))
+                    # full_msg = b''
+                    # print("pickled")
+                    status_message = package_msg(full_msg)
 
-                    pickle.dump(full_msg, open("Pickled_Subreflector_Output.p",
-                                               "ab"))
-                    full_msg = b''
-                    print("pickled")
             finally:
-                break
+                full_msg = b''
+                multicast_sock.sendto(status_message, (MULTICAST, MULTIPORT))
+
+# TODO: close socket and module when subreflectorprogram is shut down?
+
+def package_msg(binary_string):
+    """
+    Take given binary string and parses it to be made into a JSON, then
+    returns the encoded JSON string
+
+    :param binary_string: binary string
+        input string from subreflector, recieved from socket
+    :return: JSON string that is is encoded into binary for future socket
+    """
+
+    status_message = decompose_to_json(binary_string)
+
+    # Dumps JSON dict to string and encodes to bytes to send over socket
+    status_message_string = json.dumps(status_message, indent=2).encode('utf-8')
+    return status_message_string
+
+    # print(status_message)
+    # print(f"status_message is type: {type(status_message)}")
+    #
+    # status_message_string = json.dumps(status_message, indent=2)
+    # print(f"status_message_string is type: {type(status_message_string)}")
+    #
+    # status_message_to_dict = json.loads(status_message_string)
+    # print(f"status_message_to_dict is type: {type(status_message_to_dict)}")
 
 
-def mainn():
 
-    # print('header:', header)
-    # print('il:', il)
-    # print('power:', power)
-    # print('polar:', polar)
-    # print('heaxa:', hxpd)
-    # print('focus:', focus)
-    # print('asf:', asf)
-    # print('bdkl:', bdkl)
-    # print('temp:', temp)
-    # t = Time(foctime[0], format="mjd")
-    # print('foctime:', t.isot, foctime) #IRIG
-    # print('last:', last)
-    # print(len(temp))
-    # print(bdkl)
-    # for idx, val in enumerate(temp):
-    #     print(idx, val)
-    unpickled_obj = pickle.load(open("Pickled_Subreflector_Output.p", "rb"))
-    status_message = decompose_to_json(unpickled_obj)
-    full_msg = b''
 
-    # print(status_message_string)
-    print(status_message)
-    print(f"status_message is type: {type(status_message)}")
-
-    status_message_string = json.dumps(status_message, indent=2)
-    print(f"status_message_string is type: {type(status_message_string)}")
-
-    status_message_to_dict = json.loads(status_message_string)
-    print(f"status_message_to_dict is type: {type(status_message_to_dict)}")
 
 
 def decompose_to_json(message):
+    """
+    Recieves a binary string and decodes it with struct, then parses all the
+    values into a JSON dict
+
+    :param message: binary string
+        input string from subreflector, recieved from socket
+    :return: JSON dict
+    """
+
     try:
         header, il, power, polar, hxpd, focus, asf, bdkl, spkl, temp, \
         foctime, last = decode_struct(message)
@@ -1314,4 +1340,6 @@ def decompose_to_json(message):
     return status_message
 
 if __name__ == '__main__':
+    MULTICAST = ***REMOVED***
+    MULTIPORT = ***REMOVED***
     main()
