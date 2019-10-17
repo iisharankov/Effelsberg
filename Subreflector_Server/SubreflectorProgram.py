@@ -5,7 +5,7 @@ import socket
 import struct
 import json
 
-# import MT_Subreflector.SubreflectorClient
+import MT_Subreflector.SubreflectorClient as SC
 # import MT_Subreflector.MTCommand
 
 
@@ -14,9 +14,10 @@ def main():
     logging.basicConfig(filename='debug.log', filemode='w', level=logging.DEBUG,
                         format='%(asctime)s - %(levelname)s- %(message)s',
                         datefmt='%d-%b-%y %H:%M:%S')
-
+    SC.main()
     logging.debug("Starting InputCommands instance")
     InputCommands().user_input()
+
 
 
 # Communication class
@@ -342,3 +343,4 @@ if __name__ == "__main__":
     dict_ = {}  # Temporary, will get to this fix later
 
     main()
+
