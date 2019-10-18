@@ -6,7 +6,8 @@ MULTICAST = ***REMOVED***
 MULTIPORT = ***REMOVED***
 MULTICAST_GROUP = ***REMOVED***
 
-
+# TODO: This can be implemented into SubreflectorProgram, but how do we need it?
+#  kind of a waste have it all printed? Just the "last command" lines maybe?
 
 def sdh_multicast():
 
@@ -27,6 +28,6 @@ def sdh_multicast():
 
 while True:
     t = sdh_multicast()
-    # print(t)
-    loaded = json.loads(t)
-    print(loaded)
+    print(t)
+    # loaded = json.dumps(t)
+    # print(loaded)
