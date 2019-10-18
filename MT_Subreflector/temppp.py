@@ -4,13 +4,14 @@ import logging
 import socket
 import struct
 import json
+import os
 
 import MT_Subreflector.SubreflectorClient as SC
 # import MT_Subreflector.MTCommand
 
 
 def main():
-
+    print(os.getcwd())
     logging.basicConfig(filename='debug.log', filemode='w', level=logging.DEBUG,
                         format='%(asctime)s - %(levelname)s- %(message)s',
                         datefmt='%d-%b-%y %H:%M:%S')
