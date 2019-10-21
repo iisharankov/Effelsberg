@@ -16,8 +16,8 @@ def main():
                         format='%(asctime)s - %(levelname)s- %(message)s',
                         datefmt='%d-%b-%y %H:%M:%S')
     # This initiates the Subreflector  Client that reads directly from the SR
-    SC.main()
-    logging.debug("Starting InputCommands instance")
+    SC.SubreflectorClient(use_test_server=False)
+    logging.debug("Startg InputCommands instance")
 
     #
     InputCommands().user_input()
@@ -25,135 +25,135 @@ def main():
 
 
 # Communication class
-# class MyUDPHandler(socketserver.BaseRequestHandler):
-#     """
-#     The request handler class the server.
-#     """
-#
-#     def setup(self):
-#         pass
-#         # print("Incoming message")
-#
-#     def handle(self):
-#         # self.request is the UDP connected to the client
-#         logging.debug("Telnet: Message received from udp-telnet")
-#         # takes message, decodes to string and - all whitespace (by rejoining)
-#         telnet_msg = ''.join(self.request[0].decode('utf-8').lower().split())
-#         # cur_thread = threading.current_thread()
-#         # print(f"{self.client_address[0]} wrote this on #{cur_thread.name}")
-#
-#         logging.debug("Telnet: Sending message to CommandModule")
-#         command = TelnetCommandParser(telnet_msg)
-#         msg = command.return_message()
-#         logging.debug("Telnet: Message returned from CommandModule")
-#
-#         # Message to return to client
-#         # print(f"Sending message: {msg}")
-#
-#         logging.debug("Telnet: Setting up returnsocket")
-#         returnsocket = self.request[1]
-#         returnsocket.sendto(msg.encode(), self.client_address)
-#         logging.debug("Telnet: Message sent back to udp-telnet client")
-#
-#     def finish(self):
-#         pass
-#         # print("End of message.")
-#
+class MyUDPHandler(socketserver.BaseRequestHandler):
+    """
+    The request handler class the server.
+    """
 
-# class TelnetCommandParser:
-#     """
-#     Instantiating this class takes a string and parses it to return the correct
-#     response to the user
-#     """
-#
-#     def __init__(self, command_message):
-#         """
-#         :param command_message: str - message to parse
-#         """
-#         self.command = command_message
-#         self.msg = ''
-#         self.multicastdata = sdh_multicast()
-#         self.probe_command()
-#
-#     def probe_command(self):
-#         # Checks what is in the string, and calls the correct method
-#         if self.command.startswith('variable:'):
-#             self.new_variable()
-#
-#         elif self.command.startswith('returnvariables'):
-#             self.return_variables_in_json()
-#
-#         elif self.command.startswith('clearvariables'):
-#             self.clear_variables()
-#
-#         elif self.command in self.multicastdata:
-#             self.multicast_variable()
-#
-#         else:
-#             string = f"{self.command} is not a valid input or not recognized"
-#             self.set_message(string)
-#
-#     def new_variable(self):
-#         self.command = self.command.replace('variable:', '')
-#
-#         try:
-#             # telnet_msg is in form "variable=value" or "variable", so
-#             # check there is one or no "=" signs
-#             assert self.command.count("=") <= 1
-#
-#         except AssertionError:
-#             string = "More than one equals sign in message. Don't assert."
-#             self.set_message(string)
-#
-#         else:
-#             # If 1 =  sign, then we know something is being set
-#             if self.command.count("=") == 1:
-#                 # Replace = with : to parse into temp JSON
-#                 variable_name, value = self.command.split('=', 1)
-#                 string = add_variable(variable_name, value)
-#                 self.set_message(string)
-#
-#             # if no "=" sign, then user wants value of variable_name given
-#             else:
-#                 assert self.command.count("=") == 0  # Should never fail
-#                 self.return_variable()
-#
-#     def return_variable(self):
-#         if self.command in dict_:
-#
-#             string = f'The set value for {self.command} ' \
-#                      f'is {dict_[self.command]}'
-#             self.set_message(string)
-#
-#         else:
-#             string = f"{self.command} was not found/was never set"
-#             self.set_message(string)
-#
-#     def clear_variables(self):
-#         print('Clearing variables')
-#         dict_.clear()
-#         string = "All the variables were cleared"
-#         self.set_message(string)
-#
-#     def return_variables_in_json(self):
-#         string = json.dumps(dict_)
-#         self.set_message(string)
-#
-#     def multicast_variable(self):
-#         # Finds the location of the variable in the multicast message
-#         loc = self.multicastdata.find(self.command)
-#         # takes a bit more on the right side than needed. This is trimmed next
-#         multicast_var = (self.multicastdata[loc:loc + 50])
-#
-#         # Format to remove everything after comma, and remove a quote
-#         multicast_var = multicast_var.replace('"', '').split(",", 1)[0]
-#         self.set_message(multicast_var)
-#
-#     def set_message(self, string):
-#         self.msg = string
-#
-#     def return_message(self):
-#         return self.msg
+    def setup(self):
+        pass
+        # print("Incoming message")
+
+    def handle(self):
+        # self.request is the UDP connected to the client
+        logging.debug("Telnet: Message received from udp-telnet")
+        # takes message, decodes to string and - all whitespace (by rejoining)
+        telnet_msg = ''.join(self.request[0].decode('utf-8').lower().split())
+        # cur_thread = threading.current_thread()
+        # print(f"{self.client_address[0]} wrote this on #{cur_thread.name}")
+
+        logging.debug("Telnet: Sending message to CommandModule")
+        command = TelnetCommandParser(telnet_msg)
+        msg = command.return_message()
+        logging.debug("Telnet: Message returned from CommandModule")
+
+        # Message to return to client
+        # print(f"Sending message: {msg}")
+
+        logging.debug("Telnet: Setting up returnsocket")
+        returnsocket = self.request[1]
+        returnsocket.sendto(msg.encode(), self.client_address)
+        logging.debug("Telnet: Message sent back to udp-telnet client")
+
+    def finish(self):
+        pass
+        # print("End of message.")
+
+
+class TelnetCommandParser:
+    """
+    Instantiating this class takes a string and parses it to return the correct
+    response to the user
+    """
+
+    def __init__(self, command_message):
+        """
+        :param command_message: str - message to parse
+        """
+        self.command = command_message
+        self.msg = ''
+        self.multicastdata = sdh_multicast()
+        self.probe_command()
+
+    def probe_command(self):
+        # Checks what is in the string, and calls the correct method
+        if self.command.startswith('variable:'):
+            self.new_variable()
+
+        elif self.command.startswith('returnvariables'):
+            self.return_variables_in_json()
+
+        elif self.command.startswith('clearvariables'):
+            self.clear_variables()
+
+        elif self.command in self.multicastdata:
+            self.multicast_variable()
+
+        else:
+            string = f"{self.command} is not a valid input or not recognized"
+            self.set_message(string)
+
+    def new_variable(self):
+        self.command = self.command.replace('variable:', '')
+
+        try:
+            # telnet_msg is in form "variable=value" or "variable", so
+            # check there is one or no "=" signs
+            assert self.command.count("=") <= 1
+
+        except AssertionError:
+            string = "More than one equals sign in message. Don't assert."
+            self.set_message(string)
+
+        else:
+            # If 1 =  sign, then we know something is being set
+            if self.command.count("=") == 1:
+                # Replace = with : to parse into temp JSON
+                variable_name, value = self.command.split('=', 1)
+                string = add_variable(variable_name, value)
+                self.set_message(string)
+
+            # if no "=" sign, then user wants value of variable_name given
+            else:
+                assert self.command.count("=") == 0  # Should never fail
+                self.return_variable()
+
+    def return_variable(self):
+        if self.command in dict_:
+
+            string = f'The set value for {self.command} ' \
+                     f'is {dict_[self.command]}'
+            self.set_message(string)
+
+        else:
+            string = f"{self.command} was not found/was never set"
+            self.set_message(string)
+
+    def clear_variables(self):
+        print('Clearing variables')
+        dict_.clear()
+        string = "All the variables were cleared"
+        self.set_message(string)
+
+    def return_variables_in_json(self):
+        string = json.dumps(dict_)
+        self.set_message(string)
+
+    def multicast_variable(self):
+        # Finds the location of the variable in the multicast message
+        loc = self.multicastdata.find(self.command)
+        # takes a bit more on the right side than needed. This is trimmed next
+        multicast_var = (self.multicastdata[loc:loc + 50])
+
+        # Format to remove everything after comma, and remove a quote
+        multicast_var = multicast_var.replace('"', '').split(",", 1)[0]
+        self.set_message(multicast_var)
+
+    def set_message(self, string):
+        self.msg = string
+
+    def return_message(self):
+        return self.msg
 
 
 class InputCommands:
