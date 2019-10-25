@@ -1,12 +1,14 @@
-import socketserver
-import threading
-import logging
+import os
+import sys
+import time
+import json
+import copy
 import socket
 import struct
-import json
-import time
-import sys
-import os
+import logging
+import difflib
+import threading
+import socketserver
 
 import mt_subreflector.subreflector_client as subreflector_client
 # import mt_subreflector.mtcommand
@@ -292,6 +294,7 @@ class MulticastReceiver:
     def __init__(self):
         self.sock = None  # set in __init__ for consistency
         self.data = None
+        self.last_msg = None
         self.init_multicast()
 
 
@@ -313,17 +316,58 @@ class MulticastReceiver:
 
     def recv_mcast_data(self):
         multicastdata_bytes, address = self.sock.recvfrom(***REMOVED****200)
-        self.data =  str(multicastdata_bytes.decode('utf-8'))
+        self.data =  json.loads(str(multicastdata_bytes.decode('utf-8')))
+
+    def deepcopy_mcast_data(self):
+        # Deep copy to avoid any bugs
+        self.last_msg = copy.deepcopy(self.data)
+
+    def compare_data(self):
+        self.check_flags_exist(self.data)
+        if self.last_msg == None:
+            self.deepcopy_mcast_data()
+        else:
+            self.find_diferences()
+            self.deepcopy_mcast_data()
+
+    def check_flags_exist(self, data_msg):
+        assert "start-flag" in data_msg and  "end-flag" in data_msg
+
+    def find_diferences(self):
+
+        self.data["status-data-interlock"]["simulation"] = "hell"
+        print("new is: ", self.data["status-data-interlock"]["simulation"])
+
+        list = [#"start-flag",
+                # "length-of-data-packet",
+                # "number-of-the-command",
+                # "id=status-message(50)",
+                "status-data-interlock",
+                "status-data-polarization-drive",
+                "status-data-hexapod-drive",
+                "status-data-focus-change-drive",
+                "status-data-active-surface",
+                "status-data-bottom-flap",
+                "status-data-mirror-flap",
+                "status-data-temperature",
+                "status-data-irig-b-system",
+                # "end-flag"
+                ]
+
+        differences = []
+        for item in list:
+            value = {k: self.data[item][k] for k, _ in
+                     set(self.data[item].items()) - set(self.last_msg[item].items())}
+            if value:
+                print(item)
+                differences += (item, value)
+
+        print(differences)
 
 
     def print_mcast_data(self):
         self.recv_mcast_data()
-        # assert len(self.data) == 46656
-        loaded = json.dumps(self.data)
-        logging.debug("Printing multicast data")
-        assert "start-flag" in self.data and  "end-flag" in self.data
-        print(loaded)
-        print(len(loaded))
+        self.find_diferences()
 
 class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     pass
