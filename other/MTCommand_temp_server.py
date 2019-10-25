@@ -36,13 +36,10 @@ while True:
 
             data = connection.recv(100_000)
             if data:
-                # output received data
-                # msg += str(data)
-                #test
-                print("Data")
+
+                print("data")
                 print(data)
             else:
-                # print(msg)
                 # no more data -- quit the loop
                 print("no more data.")
                 break

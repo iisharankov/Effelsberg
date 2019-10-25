@@ -104,7 +104,7 @@ print(f'start_flag: {unpacked_cpp_bytes_new.start_flag} \n'
 #         This was tested with changing elevation, and activating/deactivating the
 #         Subreflector (SR). "At least it doesn't crash"
 #
-#         2) We ran the Python MTCommand.py program.  First trial was with sending
+#         2) We ran the Python mtcommand.py program.  First trial was with sending
 #         a struct_instance as shown above, I believe of size was 64 (but maybe
 #         it was 100? Don't remember). This crashed the SR again as usual even
 #         though it was a new method (ctypes instead of struct) of making the
@@ -117,7 +117,7 @@ print(f'start_flag: {unpacked_cpp_bytes_new.start_flag} \n'
 #         Python server received only an empty bytes string. If this is what the
 #         (SR) receives as well, then it makes sense as to why it does not crash
 #         (empty string sent), and also why it does not run any command or change
-#         any status output internally. We tested MTCommand.py again, this time
+#         any status output internally. We tested mtcommand.py again, this time
 #         sending an empty byte string (simply sock.send(b'') ). The SR did not
 #         crash, nor did it respond. Similar response as with the Cpp program.
 #
@@ -127,7 +127,7 @@ print(f'start_flag: {unpacked_cpp_bytes_new.start_flag} \n'
 #         noted yet again, but also it still did not crash.
 #
 #         6) No extra tests were done, but a suggested test is sending, in
-#         MTCommand.py, the bytes string we obtained from the Cpp. The only
+#         mtcommand.py, the bytes string we obtained from the Cpp. The only
 #         physical difference between the strings are two bits, mentioned above.
 #         These two bits do not interfere with the deconstructing of the message
 #         to a structure. They do not change or effect any of the parameters in
@@ -135,7 +135,7 @@ print(f'start_flag: {unpacked_cpp_bytes_new.start_flag} \n'
 #         the decoder in the SR does not work like the ctype Unpack function above.
 #         So even though two two different strings unpack to the same values here,
 #         that does not mean they do so in the SR. Testing sending the Cpp bytes
-#         string in the MTCommand.py module will tell us the following:
+#         string in the mtcommand.py module will tell us the following:
 #
 #             i) if the SR still crashes, this strongly indicates that the error
 #             is not in the bytes string, but rather the fact that it's being sent
@@ -144,11 +144,11 @@ print(f'start_flag: {unpacked_cpp_bytes_new.start_flag} \n'
 #             two sockets should be the exact same, but it is not safe to rule out
 #             the possibility that these sockets are not received the same if this
 #             test crashes the SR yet again. If a message sent in the Cpp does not
-#             crash the SR, but the exact same bytes sequence in MTCommand.py does
+#             crash the SR, but the exact same bytes sequence in mtcommand.py does
 #             crash the SR, then the error must be elsewhere.
 #
 #             ii) If the SR does not crash with the Cpp bytes string sent in
-#             MTCommand.py. This suggests several issues. The main one being that
+#             mtcommand.py. This suggests several issues. The main one being that
 #             the two bits difference between the strings may be causing the
 #             SR decoder to crash as it is unrecognized, even if ctypes still can
 #             decode the bytes string fine. If this is the case, the best fix is
@@ -168,11 +168,11 @@ print(f'start_flag: {unpacked_cpp_bytes_new.start_flag} \n'
 #         the Cpp code that change the length from 64 to 100 bits. Maybe this
 #         is critical for the SR to read the input? If so, we need to:
 #
-#             i) Test it in the Cpp and get it working, have commands sent, and
+#             i) tests it in the Cpp and get it working, have commands sent, and
 #             have the output on port ***REMOVED*** notice the change.
 #
 #             ii) Capture the output of the corrected Cpp code and make sure the
-#             Python MTCommand.py can do the same functionality.
+#             Python mtcommand.py can do the same functionality.
 #
 #     '''
 # )
