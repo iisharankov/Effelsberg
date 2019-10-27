@@ -1,4 +1,5 @@
 import time
+import sys
 import json
 import socket
 import struct
@@ -27,7 +28,9 @@ def sdh_multicast():
 
 
 while True:
+    time.sleep(0.1)
     t = sdh_multicast()
     print(t)
-    # loaded = json.dumps(t)
-    # print(loaded)
+    loaded = json.loads(t)
+    print(type(loaded))
+    print(loaded["status-data-irig-b-system"])
