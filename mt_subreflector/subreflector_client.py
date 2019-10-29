@@ -38,7 +38,7 @@ class SubreflectorClient:
             print("Connected to local MockSubreflector")
             return (self.LOCAL_ADDR, self.SUBREF_PORT)
         else:
-            print("Connected to MT_Subreflector")
+            print("Connected to mt_subreflector")
             return (self.SR_ADDR, self.SUBREF_PORT)
 
     def main(self):
@@ -52,21 +52,25 @@ class SubreflectorClient:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.sock:
             logging.debug("TCP socket created. Connecting to specified address")
 
-            # Change to local to use the MockSubreflector for testing
-            self.sock.connect(self.chosen_server)
-            logging.debug(f"TCP Socket connected at IP "
-                          f"Address {self.sock.getsockname()[0]} and "
-                          f"port {self.sock.getsockname()[1]}")
-            self.sock.settimeout(10)
-            logging.debug(f"socket timeout set to {self.sock.gettimeout()}")
-            self.make_connection(self.sock)
+            try:
+                # Change to local to use the MockSubreflector for testing
+                self.sock.connect(self.chosen_server)
+                logging.debug(f"TCP Socket connected at IP "
+                              f"Address {self.sock.getsockname()[0]} and "
+                              f"port {self.sock.getsockname()[1]}")
+                self.sock.settimeout(10)
+                logging.debug(f"socket timeout set to {self.sock.gettimeout()}")
+                self.make_connection(self.sock)
+            except ConnectionError as E:
+                logging.exception("Error connecting to server. May not be found")
+                print(f"Could not connect to the Subreflector: {E}")
 
     def make_connection(self, sock):
         full_msg = b''
         sock.send(b"\n")  # Initial message is needed to start stream
         while 1:
             try:
-                time.sleep(1)
+                time.sleep(0.01)
                 data = sock.recv(***REMOVED***)
                 logging.debug(f"Recieved data from Subreflector"
                               f" of length {len(data)}")
@@ -80,15 +84,20 @@ class SubreflectorClient:
             else:
 
                 full_msg += bytearray(data)
-                print(len(full_msg))
 
-                # msg is 1760 long, but sent in groups of ***REMOVED*** nd 736. Usually
-                # the server sends 736 first, but that would put the data in the
-                # wrong order, so it's deleted. It also checks that the endflag
-                # is also there, otherwise the second msg would always be delete
-                if full_msg.endswith(b"\x00\x00\x00\x00\xd1\xcf\xfc\xa1") \
-                        and len(full_msg) == 736:
-                    print('first message deleted')
+                """ msg is 1760 long, but sent in groups of ***REMOVED*** nd 736. Usually
+                the server sends 736 first, but that would put the data in the
+                wrong order, so it's deleted. It also checks that the endflag
+                is also there, otherwise the second msg would always be delete.
+                It also makes sure the first message isn't there, in the case 
+                the true full message is exactly 736 long, in which case the 
+                start flag would also be present """
+
+                if not full_msg.startswith(b"\x1a\xcf\xfc\x1d\x00\x00\x00\x00")\
+                    and full_msg.endswith(b"\x00\x00\x00\x00\xd1\xcf\xfc\xa1")\
+                    and len(full_msg) == 736:
+
+                    # print('first message deleted')
                     full_msg = b''
                     logging.debug(f"First message in data was 736 "
                                   f"long (wrong order). Deleted")
@@ -1380,8 +1389,10 @@ class SubreflectorClient:
 
 if __name__ == '__main__':
     logging.basicConfig(
-        filename='SubreflectorClient_debug.log', filemode='w',
+        filename='debug/subreflector_client_debug.log', filemode='w',
         level=logging.DEBUG, format='%(asctime)s - %(levelname)s- %(message)s',
         datefmt='%d-%b-%y %H:%M:%S')
+    test = "terer"
+    print(test)
 
-    start_client = SubreflectorClient(True)
+    start_client = SubreflectorClient(use_test_server=True)

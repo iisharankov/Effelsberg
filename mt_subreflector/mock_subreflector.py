@@ -31,7 +31,7 @@ def main():
         # SO_REUSEADDR tells kernel to use socket even if in TIME_WAIT state
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(server_address)
-        sock.listen(1)
+        sock.listen(2)
 
         while True:
             server(sock)
