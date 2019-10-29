@@ -6,28 +6,33 @@ import copy
 import socket
 import struct
 import logging
-import difflib
 import threading
 import socketserver
 
 import mt_subreflector.subreflector_client as subreflector_client
-# import mt_subreflector.mtcommand
 
 
 def main():
-    print(f"IN MAIN: {os.getcwd()}")
+
     logging.basicConfig(filename='debug/subreflector_program_debug.log', filemode='w', level=logging.DEBUG,
                         format='%(asctime)s - %(levelname)s - %(module)s '
                                '- %(funcName)s- %(message)s',
                         datefmt='%d-%b-%y %H:%M:%S')
-    # This initiates the Subreflector  Client that reads directly from the SR
-    # subreflector_client.SubreflectorClient(use_test_server=True)
 
-    logging.debug("Start Startup_Subreflector_Client instance")
-    Startup_Subreflector_Client().start_sr_client()
+    # This try block starts up two unique classes, which created threaded
+    # instances, one calling a server to run in the background, the other
+    # starting an instance in the subreflector_client.py module that receives
+    # and processes the data collected from the SR (subreflector)
+    try:
+        logging.debug("Start Startup_Subreflector_Client instance")
+        StartupSubreflectorClient().start_sr_client()
 
-    logging.debug("Start InputCommands instance")
-    InputCommands().start_udp_telnet()
+        logging.debug("Start InputCommands instance")
+        InputCommands().start_udp_telnet()
+        # assert 1 == 2
+    except Exception as E:
+        logging.exception("An exception occured starting the threaded classes")
+        raise E
 
     MulticastReceiver().print_mcast_data()
 
@@ -48,12 +53,10 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
         # print("Incoming message")
 
     def handle(self):
-        # self.request is the UDP connected to the client
+
         logging.debug("Telnet: Message received from udp-telnet")
         # takes message, decodes to string and - all whitespace (by rejoining)
         telnet_msg = ''.join(self.request[0].decode('utf-8').lower().split())
-        # cur_thread = threading.current_thread()
-        # print(f"{self.client_address[0]} wrote this on #{cur_thread.name}")
 
         logging.debug("Telnet: Sending message to CommandModule")
         # command = TelnetCommandParser(telnet_msg)
@@ -74,7 +77,7 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
         # print("End of message.")
 
 
-class Startup_Subreflector_Client:
+class StartupSubreflectorClient:
     """
     Simple class that correctly starts up the subreflectorclient.py script
     in a thread so it can process data from the MT Subreflector in real time.
@@ -91,9 +94,10 @@ class Startup_Subreflector_Client:
         try:
             logging.debug(f"Creating Thread")
             thread = threading.Thread(target=self.run_sc_client, args=())
-            thread.daemon = True  # Daemonize thread
+            thread.daemon = True  # Demonize thread
             logging.debug(f"Threading set to {thread.daemon}. Starting Thread")
             thread.start()
+            logging.debug("Thread started successfully")
         except Exception as Er:
             print(Er)
             logging.exception("Exception starting Startup_Subreflector_Client")
@@ -128,9 +132,10 @@ class InputCommands:
         try:
             logging.debug("Creating Thread")
             thread = threading.Thread(target=self.run_udp_telnet, args=())
-            thread.daemon = False  # Daemonize thread
+            thread.daemon = False  # Do not demonize thread
             logging.debug(f"Threading set to {thread.daemon}. Starting thread")
             thread.start()
+            logging.debug("Thread started successfully")
         except Exception as Er:
             print(Er)
             logging.exception("Exception starting telnet")
@@ -146,26 +151,31 @@ class InputCommands:
                       f" {dest_address[0]}, port: {dest_address[1]}")
         self.server = ThreadingUDPServer(dest_address, MyUDPHandler)
 
-        while True:
-            logging.debug(f"Setting server to run forever")
-            t = threading.Thread(target=self.server.serve_forever)
-            logging.debug(f"ThreadingUDPServer now running in a non-deamon "
-                          f"thread ({threading.current_thread}) in background")
-            t.start()  # Todo: Maybe use a thread pool?
+        # if True: # TODO: removes while loop. is fine?
+        logging.debug(f"Setting server to run forever")
+        t = threading.Thread(target=self.server.serve_forever)
+        logging.debug(f"ThreadingUDPServer now running in a non-deamon "
+                      f"thread ({threading.current_thread}) in background")
+        t.start()
 
-            # This next line is system critical so is in an enclosed try block
-            try:
-                logging.debug("Joining thread")
-                t.join()  # CRITICAL or WILL CRASH (runtimeerror)
-            except Exception as E:
-                logging.exception("Error joining thread. Memory"
-                                 " overflow would occur if continued. System "
-                                  " did abrupt exit to prevent possible crash")
-                print(f"Exception when joining ThreadingUDPServer: {E}. Please"
-                      f" read debug logs. System forcefully exited. No Cleanup")
-                time.sleep(.0001)
-                os._exit(1) # This is a very abrupt stop (no cleanup is done),
-                # but the alternative is reaching a thread limit if t.join fails
+
+        # This commented out part was necessary since i put everything in a
+        # while loop. Though it seems that was not needed.
+
+        # # This next line is system critical so is in an enclosed try block
+        # try:
+        #     logging.debug("Joining thread")
+        #     # t.join()  # CRITICAL or WILL CRASH (runtimeerror)
+        # except Exception as E:
+        #     logging.exception("Error joining thread. Memory"
+        #                      " overflow would occur if continued. System "
+        #                       " did abrupt exit to prevent possible crash")
+        #     print(f"Exception when joining ThreadingUDPServer: {E}. Please"
+        #           f" read debug logs. System forcefully exited. No Cleanup")
+        #     time.sleep(.0001)
+        #     os._exit(1) # This is a very abrupt stop (no cleanup is done),
+        #     # but the alternative is reaching a thread limit if t.join fails
+
     # def stop_udp_telnet(self):
     #     if self.server:
     #         print("shutting down telnet")
@@ -333,16 +343,20 @@ class MulticastReceiver:
     def check_flags_exist(self, data_msg):
         assert "start-flag" in data_msg and  "end-flag" in data_msg
 
+    def assert_static_data(self):
+        # These should always be the same, no matter what
+        assert self.data["start-flag"] == 0x1DFCCF1A
+        assert self.data["length-of-data-packet"] == 1760
+        assert self.data["id=status-message(50)"] == 50
+        assert self.data["end-flag"] == 0xA1FCCFD1
+
     def find_diferences(self):
-
+        self.assert_static_data()
+        self.compare_data()
         self.data["status-data-interlock"]["simulation"] = "hell"
-        print("new is: ", self.data["status-data-interlock"]["simulation"])
+        self.data["status-data-interlock"]["override"] = "poop"
 
-        list = [#"start-flag",
-                # "length-of-data-packet",
-                # "number-of-the-command",
-                # "id=status-message(50)",
-                "status-data-interlock",
+        list = ["status-data-interlock",
                 "status-data-polarization-drive",
                 "status-data-hexapod-drive",
                 "status-data-focus-change-drive",
@@ -351,15 +365,19 @@ class MulticastReceiver:
                 "status-data-mirror-flap",
                 "status-data-temperature",
                 "status-data-irig-b-system",
-                # "end-flag"
                 ]
 
         differences = []
         for item in list:
             value = {k: self.data[item][k] for k, _ in
                      set(self.data[item].items()) - set(self.last_msg[item].items())}
+
+            # value = {k: self.data[item] for k in set(self.data[item]) -
+            #          set(self.last_msg[item])}
+            # diff = set(self.last_msg[item].items()) - set(self.data[item].items())
+            # print(diff)
+            # value = diff
             if value:
-                print(item)
                 differences += (item, value)
 
         print(differences)

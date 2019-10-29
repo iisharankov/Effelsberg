@@ -6,8 +6,8 @@ import struct
 import json
 import os
 
-import MT_Subreflector.SubreflectorClient as SC
-# import MT_Subreflector.MTCommand
+import mt_subreflector.subreflector_client as SC
+# import mt_subreflector.MTCommand
 
 
 def main():

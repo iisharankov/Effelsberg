@@ -288,7 +288,7 @@ class MTCommand:
 
         self.encapsulate_command("asf", data)
 
-    # # # # # Subreflector positioning instruction set # # # # #
+    # # # # # 4.5 Subreflector positioning instruction set # # # # #
 
     def activate_hxpd(self):
         cmd_hxpd = 101
