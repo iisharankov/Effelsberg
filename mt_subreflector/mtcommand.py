@@ -62,14 +62,14 @@ class MTCommand:
 
         # Correct class structure for given command
         class InterlockStructure(ctypes.Structure):
-            _fields_ = [("start_flag", ctypes.c_ulong),
-                        ("message_length", ctypes.c_long),
-                        ("command_serial_number", ctypes.c_long),
-                        ("command", ctypes.c_long),
-                        ("mode", ctypes.c_short),
+            _fields_ = [("start_flag", ctypes.c_uint32),
+                        ("message_length", ctypes.c_int32),
+                        ("command_serial_number", ctypes.c_int32),
+                        ("command", ctypes.c_int32),
+                        ("mode", ctypes.c_int16),
                         ("elevation", ctypes.c_double),
                         ("reserved", ctypes.c_double),
-                        ("end_flag", ctypes.c_ulong)]
+                        ("end_flag", ctypes.c_uint32)]
 
         size_of_struct = ctypes.sizeof(InterlockStructure())
         print(size_of_struct)  # To see the size in output, as it changes often
@@ -83,25 +83,25 @@ class MTCommand:
        
         # Correct class structure for given command
         class AsfStructure(ctypes.Structure):
-            _fields_ = [("start_flag", ctypes.c_ulong),
-                        ("message_length", ctypes.c_long),
-                        ("command_serial_number", ctypes.c_long),
-                        ("command", ctypes.c_short),
-                        ("mode", ctypes.c_short),
-                        ("offset_dr_nr", ctypes.c_short),
-                        ("offset_active", ctypes.c_ulong),
-                        ("offset_value1", ctypes.c_short),
-                        ("offset_value2", ctypes.c_short),
-                        ("offset_value3", ctypes.c_short),
-                        ("offset_value4", ctypes.c_short),
-                        ("offset_value5", ctypes.c_short),
-                        ("offset_value6", ctypes.c_short),
-                        ("offset_value7", ctypes.c_short),
-                        ("offset_value8", ctypes.c_short),
-                        ("offset_value9", ctypes.c_short),
-                        ("offset_value10", ctypes.c_short),
-                        ("offset_value11", ctypes.c_short),
-                        ("end_flag", ctypes.c_ulong)]
+            _fields_ = [("start_flag", ctypes.c_uint32),
+                        ("message_length", ctypes.c_int32),
+                        ("command_serial_number", ctypes.c_int32),
+                        ("command", ctypes.c_int16),
+                        ("mode", ctypes.c_int16),
+                        ("offset_dr_nr", ctypes.c_int16),
+                        ("offset_active", ctypes.c_uint16),
+                        ("offset_value1", ctypes.c_int16),
+                        ("offset_value2", ctypes.c_int16),
+                        ("offset_value3", ctypes.c_int16),
+                        ("offset_value4", ctypes.c_int16),
+                        ("offset_value5", ctypes.c_int16),
+                        ("offset_value6", ctypes.c_int16),
+                        ("offset_value7", ctypes.c_int16),
+                        ("offset_value8", ctypes.c_int16),
+                        ("offset_value9", ctypes.c_int16),
+                        ("offset_value10", ctypes.c_int16),
+                        ("offset_value11", ctypes.c_int16),
+                        ("end_flag", ctypes.c_uint32)]
 
         size_of_struct = ctypes.sizeof(AsfStructure())
         print(size_of_struct)  # To see the size in output, as it changes often
@@ -124,24 +124,24 @@ class MTCommand:
 
         # Correct class structure for given command
         class InterlockStructure(ctypes.Structure):
-            _fields_ = [("start_flag", ctypes.c_ulong),
-                        ("message_length", ctypes.c_long),
-                        ("command_serial_number", ctypes.c_long),
-                        ("command", ctypes.c_long),  # INT32
-                        ("fashion", ctypes.c_short),  # INT16
-                        ("mode_lin", ctypes.c_short),
+            _fields_ = [("start_flag", ctypes.c_uint32),
+                        ("message_length", ctypes.c_int32),
+                        ("command_serial_number", ctypes.c_int32),
+                        ("command", ctypes.c_int32),  # INT32
+                        ("fashion", ctypes.c_int16),  # INT16
+                        ("mode_lin", ctypes.c_int16),
                         ("p_xlin", ctypes.c_double),
                         ("p_ylin", ctypes.c_double),
                         ("p_zlin", ctypes.c_double),
                         ("v_lin", ctypes.c_double),
-                        ("mode_rot", ctypes.c_short),
+                        ("mode_rot", ctypes.c_int16),
                         ("p_xrot", ctypes.c_double),
                         ("p_yrot", ctypes.c_double),
                         ("p_zrot", ctypes.c_double),
                         ("v_rot", ctypes.c_double),
                         ("elevation", ctypes.c_double),
                         ("reserved", ctypes.c_double),  # real64
-                        ("end_flag", ctypes.c_ulong)]  # DWORD
+                        ("end_flag", ctypes.c_uint32)]  # DWORD
 
         size_of_struct = ctypes.sizeof(InterlockStructure())
         print(size_of_struct)  # To see the size in output, as it changes often
@@ -159,15 +159,14 @@ class MTCommand:
 
         # Correct class structure for given command
         class InterlockStructure(ctypes.Structure):
-            _fields_ = [("start_flag", ctypes.c_ulong),
-                        ("message_length", ctypes.c_long),
-                        ("command_serial_number", ctypes.c_long),
-                        ("command", ctypes.c_long),
-                        ("mode", ctypes.c_short),
+            _fields_ = [("start_flag", ctypes.c_uint32),
+                        ("message_length", ctypes.c_int32),
+                        ("command_serial_number", ctypes.c_int32),
+                        ("command", ctypes.c_int32),
+                        ("mode", ctypes.c_int16),
                         ("p_soll", ctypes.c_double),
                         ("v_cmd", ctypes.c_double),
-                        ("reserved", ctypes.c_double),
-                        ("end_flag", ctypes.c_ulong)]
+                        ("end_flag", ctypes.c_uint32)]
 
         size_of_struct = ctypes.sizeof(InterlockStructure())
         print(size_of_struct)  # To see the size in output, as it changes often
@@ -371,6 +370,19 @@ class MTCommand:
                 mode_rot, p_xrot, p_yrot, p_zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
+
+
+    # TODO: Get current lin and rot positions for input for rel
+    # Sample
+    # "status-data-hexapod-drive": {
+    #     "status_of_the_subsystem_": 1,
+    #     "current_position_x_linear_[mm]": 14.491655349731445,
+    #     "current_position_y_linear_[mm]": 27.000001907348633,
+    #     "current_position_z_linear_[mm]": -94.39842987060547,
+    #     "current_position_x_rotation_[deg]": 0.46666669845581055,
+    #     "current_position_y_rotation_[deg]": 2.856***REMOVED***653184183e-07,
+    #     "current_position_z_rotation_[deg]": -6.9603963481768e-08,
+    #     ...
 
     def preset_rel_hxpd(self, p_xlin, p_ylin, p_zlin, v_lin,
                         p_xrot, p_yrot, p_zrot, v_rot):
