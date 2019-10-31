@@ -371,19 +371,6 @@ class MTCommand:
 
         self.encapsulate_command("hxpd", data)
 
-
-    # TODO: Get current lin and rot positions for input for rel
-    # Sample
-    # "status-data-hexapod-drive": {
-    #     "status_of_the_subsystem_": 1,
-    #     "current_position_x_linear_[mm]": 14.491655349731445,
-    #     "current_position_y_linear_[mm]": 27.000001907348633,
-    #     "current_position_z_linear_[mm]": -94.39842987060547,
-    #     "current_position_x_rotation_[deg]": 0.46666669845581055,
-    #     "current_position_y_rotation_[deg]": 2.856***REMOVED***653184183e-07,
-    #     "current_position_z_rotation_[deg]": -6.9603963481768e-08,
-    #     ...
-
     def preset_rel_hxpd(self, p_xlin, p_ylin, p_zlin, v_lin,
                         p_xrot, p_yrot, p_zrot, v_rot):
         try:
