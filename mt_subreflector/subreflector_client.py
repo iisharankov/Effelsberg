@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import time
 import json
 import socket
@@ -68,18 +69,16 @@ class SubreflectorClient:
     def make_connection(self, sock):
         full_msg = b''
         sock.send(b"\n")  # Initial message is needed to start stream
+        count = 0
         while 1:
             try:
                 time.sleep(0.01)
                 data = sock.recv(***REMOVED***)
-                logging.debug(f"Recieved data from Subreflector"
-                              f" of length {len(data)}")
 
             except socket.timeout:
-                logging.debug(
-                    f"Socket timed out after {sock.gettimeout()} seconds")
-                print(f"Socket timed out after {sock.gettimeout()} seconds. "
-                      f"Trying again.")
+                msg = f"Socket timed out after {sock.gettimeout()} seconds"
+                logging.debug(msg)
+                print(msg, " Trying again.")
 
             else:
 
@@ -115,10 +114,11 @@ class SubreflectorClient:
                 elif len(full_msg) == 1760:
                     # Optional pickling of the message for storage
                     # pickle.dump(full_msg, open("Subreflector_Output.p",ab"))
-
+                    count += 1
                     status_message = self.package_msg(full_msg)
                     full_msg = b''
-                    print("message")
+                    # TODO: Just here to know it's running normally when testing
+                    print(f"\rmessage sent x{count}", end='')
                     self.multicast_sock.sendto(status_message, self.MULTICAST)
 
     # TODO: close socket and module when subreflectorprogram is shut down?msg
@@ -1392,7 +1392,5 @@ if __name__ == '__main__':
         filename='debug/subreflector_client_debug.log', filemode='w',
         level=logging.DEBUG, format='%(asctime)s - %(levelname)s- %(message)s',
         datefmt='%d-%b-%y %H:%M:%S')
-    test = "terer"
-    print(test)
 
     start_client = SubreflectorClient(use_test_server=True)
