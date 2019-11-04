@@ -8,12 +8,6 @@ TCP_IP = '***REMOVED***'
 TCP_PORT = ***REMOVED***
 BUFFER_SIZE = ***REMOVED***
 
-# logging.basicConfig(filename='debug/subreflector_program_debug.log',
-#                     filemode='w', level=logging.DEBUG,
-#                     format='%(asctime)s - %(levelname)s - %(module)s '
-#                            '- %(funcName)s- %(message)s',
-#                     datefmt='%d-%b-%y %H:%M:%S')
-
 
 class MTCommand:
     def __init__(self):
@@ -27,6 +21,9 @@ class MTCommand:
 
     def send_command(self, command):
         # Sends the given command though the socket to the Subreflector
+        logging.debug(f"Sending packaged_ctype to Subreflector at "
+                      f"address: {self.sock.getsockname()[0]}, "
+                      f"port: {self.sock.getsockname()[1]}.")
         self.sock.send(command)
 
     @staticmethod
@@ -54,18 +51,16 @@ class MTCommand:
         ctype_instance = ctypes.cast(ctypes.pointer(cstring),
                                      ctypes.POINTER(ctype)).contents
         return ctype_instance
-    '''
-    Defined in page 6 and 7 in EFB_SPE documentation 
-    '''
 
     def interlock_command_to_struct(self, command):
 
         # Correct class structure for given command
         class InterlockStructure(ctypes.Structure):
+            _pack_ = 1
             _fields_ = [("start_flag", ctypes.c_uint32),
                         ("message_length", ctypes.c_int32),
                         ("command_serial_number", ctypes.c_int32),
-                        ("command", ctypes.c_int32),
+                        ("command", ctypes.c_int16),
                         ("mode", ctypes.c_int16),
                         ("elevation", ctypes.c_double),
                         ("reserved", ctypes.c_double),
@@ -74,7 +69,7 @@ class MTCommand:
         size_of_struct = ctypes.sizeof(InterlockStructure())
         print(size_of_struct)  # To see the size in output, as it changes often
         cmd_il, mode, elevation, reserve = command
-        self.seconds = 12345  # Temporary to have identical stamps to compare
+        # self.seconds = 12345  # Temporary to have identical stamps to compare
         self.structure = InterlockStructure(
             self.startflag, size_of_struct, self.seconds, 
             cmd_il, mode, elevation, reserve, self.endflag)
@@ -83,6 +78,7 @@ class MTCommand:
        
         # Correct class structure for given command
         class AsfStructure(ctypes.Structure):
+            _pack_ = 1
             _fields_ = [("start_flag", ctypes.c_uint32),
                         ("message_length", ctypes.c_int32),
                         ("command_serial_number", ctypes.c_int32),
@@ -111,7 +107,7 @@ class MTCommand:
             offset_value6, offset_value7, offset_value8, offset_value9, \
             offset_value10, offset_value11 = command
 
-        self.seconds = 12345  # Temporary to have identical stamps to compare
+        # self.seconds = 12345  # Temporary to have identical stamps to compare
         self.structure = AsfStructure(
             self.startflag,
             size_of_struct, self.seconds, cmd_as, mode, offset_dr_nr,
@@ -124,10 +120,11 @@ class MTCommand:
 
         # Correct class structure for given command
         class InterlockStructure(ctypes.Structure):
+            _pack_ = 1
             _fields_ = [("start_flag", ctypes.c_uint32),
                         ("message_length", ctypes.c_int32),
                         ("command_serial_number", ctypes.c_int32),
-                        ("command", ctypes.c_int32),  # INT32
+                        ("command", ctypes.c_int16),  # INT32
                         ("fashion", ctypes.c_int16),  # INT16
                         ("mode_lin", ctypes.c_int16),
                         ("p_xlin", ctypes.c_double),
@@ -147,7 +144,7 @@ class MTCommand:
         print(size_of_struct)  # To see the size in output, as it changes often
         cmd_hxpd, fashion, mode_lin, p_xlin, p_ylin, p_zlin, v_lin, \
             mode_rot, p_xrot, p_yrot, p_zrot, v_rot = command
-        self.seconds = 12345  # Temporary to have identical stamps to compare
+        # self.seconds = 12345  # Temporary to have identical stamps to compare
 
         self.structure = InterlockStructure(
             self.startflag, size_of_struct, self.seconds, cmd_hxpd, fashion,
@@ -159,10 +156,11 @@ class MTCommand:
 
         # Correct class structure for given command
         class InterlockStructure(ctypes.Structure):
+            _pack_ = 1
             _fields_ = [("start_flag", ctypes.c_uint32),
                         ("message_length", ctypes.c_int32),
                         ("command_serial_number", ctypes.c_int32),
-                        ("command", ctypes.c_int32),
+                        ("command", ctypes.c_int16),
                         ("mode", ctypes.c_int16),
                         ("p_soll", ctypes.c_double),
                         ("v_cmd", ctypes.c_double),
@@ -171,7 +169,7 @@ class MTCommand:
         size_of_struct = ctypes.sizeof(InterlockStructure())
         print(size_of_struct)  # To see the size in output, as it changes often
         cmd_polar, fashion, p_soll, v_cmd = command
-        self.seconds = 12345  # Temporary to have identical stamps to compare
+        # self.seconds = 12345  # Temporary to have identical stamps to compare
         self.structure = InterlockStructure(
             self.startflag, size_of_struct, self.seconds,
             cmd_polar, fashion, p_soll, v_cmd, self.endflag)
@@ -189,13 +187,14 @@ class MTCommand:
         :return: None, but calls to send message to subreflector via socket
         """
 
-        self.structure = None  # Sets back to None in case already set
+        self.structure = None  # In case already set
 
-        # Next lines are just to create a unique timestamp to differentiate msgs
+        # Creates a unique timestamp to differentiate messages
         now = datetime.datetime.now()
         midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
         self.seconds = (now - midnight).seconds  # a unique int of length five
 
+        # Parse the command to the correct method/structure
         if type_of_command.lower() == "interlock":
             self.interlock_command_to_struct(command_msg)
         elif type_of_command.lower() == "asf":
@@ -203,22 +202,29 @@ class MTCommand:
         elif type_of_command.lower() == 'hxpd':
             self.hxpd_command_to_struct(command_msg) 
         elif type_of_command.lower() == 'polar':
-            print("MUST MAKE METHOD AND CTYPES CLASS FOR THIS CASE")  # TODO
+            self.polar_command_to_struct(command_msg)
+            # print("MUST MAKE METHOD AND CTYPES CLASS FOR THIS CASE")  # TODO
         else:
-            print("Unknown command type")
+            print("Unknown command type") # should be unreachable
 
-        packaged_ctype_with_pack = self.pack(self.structure)
-        print("packaged_ctype_with_pack")
-        print(packaged_ctype_with_pack)
-
-        test_bytes = b''
-        self.send_command(test_bytes)
+        try:
+            assert self.structure is not None # Should be changed from above code
+            logging.debug("Packing structure to bytes")
+            packaged_ctype = self.pack(self.structure)
+            print("packaged_ctype")
+            print(packaged_ctype)
+        except AssertionError as E:
+            logging.exception("Structure was not set by relevant"
+                              " command_to_struct method, nothing to package")
+            print(E)
+        else:
+            self.send_command(packaged_ctype)
 
     # # # # # 4.2 Interlock command # # # # #
     def set_mt_elevation(self, elevation):
-        cmd_il = 106  # 4
-        mode = 2000  # 4
-        reserve = 0.0  # 8
+        cmd_il = 106
+        mode = 2000
+        reserve = 0.0
         data = (cmd_il, mode, elevation, reserve)
         self.encapsulate_command("interlock", data)
 
@@ -287,11 +293,50 @@ class MTCommand:
 
         self.encapsulate_command("asf", data)
 
-    # # # # # 4.5 Subreflector positioning instruction set # # # # #
+    def set_automatic_asf(self):
+        cmd_as = 100
+        mode = 42
+        offset_dr_nr = 1  # 1-96 apparently
+        offset_active = 0
+        offset_value1 = 0
+        offset_value2 = 0
+        offset_value3 = 0
+        offset_value4 = 0
+        offset_value5 = 0
+        offset_value6 = 0
+        offset_value7 = 0
+        offset_value8 = 0
+        offset_value9 = 0
+        offset_value10 = 0
+        offset_value11 = 0
+
+        data = (cmd_as, mode, offset_dr_nr, offset_active, offset_value1,
+                offset_value2, offset_value3, offset_value4, offset_value5,
+                offset_value6, offset_value7, offset_value8, offset_value9,
+                offset_value10, offset_value11)
+
+        self.encapsulate_command("asf", data)
+
+
+    # # # # # 4.4 Subreflector positioning instruction set # # # # #
 
     def activate_hxpd(self):
         cmd_hxpd = 101
         fashion = 2
+        mode_lin = 0
+        p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
+        mode_rot = 0
+        p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+
+        data = (cmd_hxpd, fashion,
+                mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
+                mode_rot, p_xrot, p_yrot, p_zrot, v_rot)
+
+        self.encapsulate_command("hxpd", data)
+
+    def interlock_hxpd(self):
+        cmd_hxpd = 101
+        fashion = 14
         mode_lin = 0
         p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
         mode_rot = 0
@@ -351,11 +396,11 @@ class MTCommand:
             assert (p_xlin <= 230) and (p_xlin >= -230)
             assert (p_ylin <= 180) and (p_ylin >= -180)
             assert (p_zlin <= 50) and (p_zlin >= -200)
-            assert (v_lin <= 10) and (v_lin >= 0.001)
+            # assert (v_lin <= 10) and (v_lin >= 0.001)
             assert (p_xrot <= 1.01) and (p_xrot >= -1.01)
             assert (p_yrot <= 1.01) and (p_yrot >= -1.01)
             assert (p_zrot <= 1.01) and (p_zrot >= -1.01)
-            assert (v_rot <= 0.1) and (v_rot >= 0.00001)
+            # assert (v_rot <= 0.1) and (v_rot >= 0.00001)
         except AssertionError as E:
             logging.exception("Paramater(s) out of range")
             print(f"Assertion Error: {E}")
@@ -363,7 +408,7 @@ class MTCommand:
         cmd_hxpd = 101
         fashion = 2
         mode_lin = 3
-        mode_rot = 3
+        mode_rot = 0
 
         data = (cmd_hxpd, fashion,
                 mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
@@ -377,11 +422,11 @@ class MTCommand:
             assert (p_xlin <= 230) and (p_xlin >= -230)
             assert (p_ylin <= 180) and (p_ylin >= -180)
             assert (p_zlin <= 50) and (p_zlin >= -200)
-            assert (v_lin <= 10) and (v_lin >= 0.001)
+            # assert (v_lin <= 10) and (v_lin >= 0.001)
             assert (p_xrot <= 1.01) and (p_xrot >= -1.01)
             assert (p_yrot <= 1.01) and (p_yrot >= -1.01)
             assert (p_zrot <= 1.01) and (p_zrot >= -1.01)
-            assert (v_rot <= 0.1) and (v_rot >= 0.00001)
+            # assert (v_rot <= 0.1) and (v_rot >= 0.00001)
         except AssertionError as E:
             logging.exception("Paramater(s) out of range")
             print(f"Assertion Error: {E}")
@@ -422,9 +467,17 @@ class MTCommand:
         data = (cmd_polar, fashion, p_soll, v_cmd)
         self.encapsulate_command("polar", data)
 
+    def acknowledge_error_on_polar(self):
+        cmd_polar = 102
+        fashion = 15
+        p_soll = 0
+        v_cmd = 0
+        data = (cmd_polar, fashion, p_soll, v_cmd)
+        self.encapsulate_command("polar", data)
+
     def preset_abs_polar(self, p_soll, v_cmd):
         assert (p_soll <= 195) and (p_soll >= -195)
-        assert (v_cmd <= 3) and (v_cmd >= 0.000_01)
+        # assert (v_cmd <= 3) and (v_cmd >= 0.000_01)
 
         cmd_polar = 102
         fashion = 3
