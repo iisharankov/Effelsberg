@@ -72,7 +72,6 @@ class SubreflectorClient:
         count = 0
         while 1:
             try:
-                time.sleep(0.01)
                 data = sock.recv(***REMOVED***)
 
             except socket.timeout:
@@ -82,38 +81,25 @@ class SubreflectorClient:
 
             else:
 
-                full_msg += bytearray(data)
+                if (full_msg == b'' and len(data) == 736) or \
+                        (len(full_msg) == ***REMOVED*** and len(data) == ***REMOVED***):
+                    pass
+                elif (full_msg == b'' and len(data) == ***REMOVED***) or \
+                        (len(full_msg) == ***REMOVED*** and len(data) == 736):
+                    full_msg += bytearray(data)
 
-                """ msg is 1760 long, but sent in groups of ***REMOVED*** nd 736. Usually
-                the server sends 736 first, but that would put the data in the
-                wrong order, so it's deleted. It also checks that the endflag
-                is also there, otherwise the second msg would always be delete.
-                It also makes sure the first message isn't there, in the case 
-                the true full message is exactly 736 long, in which case the 
-                start flag would also be present """
 
-                if not full_msg.startswith(b"\x1a\xcf\xfc\x1d\x00\x00\x00\x00")\
-                    and full_msg.endswith(b"\x00\x00\x00\x00\xd1\xcf\xfc\xa1")\
-                    and len(full_msg) == 736:
-
-                    # print('first message deleted')
-                    full_msg = b''
-                    logging.debug(f"First message in data was 736 "
-                                  f"long (wrong order). Deleted")
-
-                # Message should be exactly 1760 after two cycles, th  is checks
-                # for overflow if somehow the message is longer
-                elif len(full_msg) > 1800:
-
+                if len(full_msg) > 2000:
                     msg = "The message did not register the correct length, " \
-                          "size of Subreflector output data may have changed."
+                          "messages may have been appended incorrectly."
                     logging.exception(msg)
                     raise ValueError(msg)
 
                 # Expected length of the message
                 elif len(full_msg) == 1760:
+                    time.sleep(1)
                     # Optional pickling of the message for storage
-                    # pickle.dump(full_msg, open("Subreflector_Output.p",ab"))
+                    # pickle.dump(full_msg, open("Subreflector_Output_Nov-4.p", 'ab'))
                     count += 1
                     status_message = self.package_msg(full_msg)
                     full_msg = b''
@@ -1393,4 +1379,4 @@ if __name__ == '__main__':
         level=logging.DEBUG, format='%(asctime)s - %(levelname)s- %(message)s',
         datefmt='%d-%b-%y %H:%M:%S')
 
-    start_client = SubreflectorClient(use_test_server=True)
+    start_client = SubreflectorClient(use_test_server=False)
