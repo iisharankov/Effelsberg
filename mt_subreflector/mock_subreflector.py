@@ -55,7 +55,7 @@ def server(sock):
                 # Loop sending messages just like the real SR does
                 try:
                     connection.send(second_msg)
-                    time.sleep(1)
+                    time.sleep(0.0001)
                     connection.send(first_msg)
                 except ConnectionError:
                     # If broken pipe (disconected), break for next connection
