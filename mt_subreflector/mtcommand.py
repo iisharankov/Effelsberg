@@ -124,14 +124,18 @@ class MTCommand:
             _fields_ = [("start_flag", ctypes.c_uint32),
                         ("message_length", ctypes.c_int32),
                         ("command_serial_number", ctypes.c_int32),
-                        ("command", ctypes.c_int16),  # INT32
-                        ("fashion", ctypes.c_int16),  # INT16
+                        ("command", ctypes.c_int16),
+                        ("fashion", ctypes.c_int16),
                         ("mode_lin", ctypes.c_int16),
+                        ("anzahl_lin", ctypes.c_int16),
+                        ("phase_lin", ctypes.c_double),
                         ("p_xlin", ctypes.c_double),
                         ("p_ylin", ctypes.c_double),
                         ("p_zlin", ctypes.c_double),
                         ("v_lin", ctypes.c_double),
-                        ("mode_rot", ctypes.c_int16),
+                        ("mode_rot", ctypes.c_int16)
+                        ("anzahl_rot", ctypes.c_int16),
+                        ("phase_rot", ctypes.c_double),
                         ("p_xrot", ctypes.c_double),
                         ("p_yrot", ctypes.c_double),
                         ("p_zrot", ctypes.c_double),
@@ -142,14 +146,14 @@ class MTCommand:
 
         size_of_struct = ctypes.sizeof(InterlockStructure())
         print(size_of_struct)  # To see the size in output, as it changes often
-        cmd_hxpd, fashion, mode_lin, p_xlin, p_ylin, p_zlin, v_lin, \
-            mode_rot, p_xrot, p_yrot, p_zrot, v_rot = command
-        # self.seconds = 12345  # Temporary to have identical stamps to compare
+        cmd_hxpd, fashion, mode_lin, anzahl_lin, phase_lin, \
+            p_xlin, p_ylin, p_zlin, v_lin, mode_rot, anzahl_rot, phase_rot,
+            p_xrot, p_yrot, p_zrot, v_rot, = command
 
         self.structure = InterlockStructure(
             self.startflag, size_of_struct, self.seconds, cmd_hxpd, fashion,
-            mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
-            mode_rot, p_xrot, p_yrot, p_zrot, v_rot,
+            mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
+            mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot,
             self.endflag)
 
     def polar_command_to_struct(self, command):
@@ -327,10 +331,11 @@ class MTCommand:
         p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
         mode_rot = 0
         p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
-                mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, p_xrot, p_yrot, p_zrot, v_rot)
+                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
 
@@ -341,10 +346,11 @@ class MTCommand:
         p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
         mode_rot = 0
         p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
-                mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, p_xrot, p_yrot, p_zrot, v_rot)
+                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
 
@@ -355,10 +361,11 @@ class MTCommand:
         p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
         mode_rot = 0
         p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
-                mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, p_xrot, p_yrot, p_zrot, v_rot)
+                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
 
@@ -369,10 +376,11 @@ class MTCommand:
         p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
         mode_rot = 0
         p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
-                mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, p_xrot, p_yrot, p_zrot, v_rot)
+                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
 
@@ -383,10 +391,11 @@ class MTCommand:
         p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
         mode_rot = 0
         p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
-                mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, p_xrot, p_yrot, p_zrot, v_rot)
+                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
 
@@ -409,10 +418,11 @@ class MTCommand:
         fashion = 2
         mode_lin = 3
         mode_rot = 0
+        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
-                mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, p_xrot, p_yrot, p_zrot, v_rot)
+                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
 
@@ -435,10 +445,11 @@ class MTCommand:
         fashion = 2
         mode_lin = 4
         mode_rot = 4
+        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
-                mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, p_xrot, p_yrot, p_zrot, v_rot)
+                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
 

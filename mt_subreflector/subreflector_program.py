@@ -109,7 +109,7 @@ class StartupSubreflectorClient:
         creates instance of SubreflectorClient which starts listening to the
         subreflector.
          """
-        subreflector_client_module.SubreflectorClient(use_test_server=True)
+        subreflector_client_module.SubreflectorClient(use_test_server=False)
 
 
 class InputCommands:
@@ -223,7 +223,8 @@ class UDPCommandParser:
         self.commandprefix = None
         # self.multicastdata = sdh_multicast()
         self.check_obsprefix()
-    
+
+    # # # # # General parsing section # # # # #
     def check_obsprefix(self):
         # Checks to make sure the command starts with correct string
         if self.user_command.startswith("EFFELSBERG:"):
@@ -258,11 +259,11 @@ class UDPCommandParser:
         elif self.user_command.startswith('POLAR:'):
             self.polar_control()
 
-        elif self.user_command.startswith('returnvariables'):
-            self.return_variables_in_json()
-
-        elif self.user_command.startswith('clearvariables'):
-            self.clear_variables()
+        # elif self.user_command.startswith('returnvariables'):
+        #     self.return_variables_in_json()
+        #
+        # elif self.user_command.startswith('clearvariables'):
+        #     self.clear_variables()
 
         # elif self.user_command in self.multicastdata:
         #     self.multicast_variable()
@@ -271,10 +272,13 @@ class UDPCommandParser:
             string = f"{self.user_command} is not a valid input or not recognized"
             self.msg = string
 
+    # # # # # Interlock parsing section # # # # #
     def interlock_control(self):
         # Splits user_command into command part, and if number, as 2nd val
         try:
             command, value = self.user_command[10:].strip().split(" ", 1)
+            logging.debug(command)
+            logging.debug(value)
         except ValueError:
             logging.exception("Number given couldn't be converted to a float")
         else:
@@ -291,6 +295,7 @@ class UDPCommandParser:
                 self.msg = 'message type not recognized. Correct types for ' \
                            'interlock are: "ON", "OFF", "SET"'
 
+    # # # # # Hexapod parsing section # # # # #
     def hexapod_control(self):
         self.user_command = self.user_command[8:]
 
@@ -308,8 +313,8 @@ class UDPCommandParser:
             try:
                 # Remove "SETABS" from string and split into list at every space
                 values = self.user_command[6:].strip().split(" ")
-                numbers = [float(i) for i in values]  # change str to float
-                assert len(numbers) == 8  # Make sure there's exactly 8 entries
+                new_val = [float(i) for i in values]  # change str to float
+                assert len(new_val) == 8  # Make sure there's exactly 8 entries
 
             except AssertionError as E:
                 print(E)
@@ -324,34 +329,34 @@ class UDPCommandParser:
 
             else:
                 if "SETABS" in self.user_command:
-                    mtcommand_instance.preset_abs_hxpd(numbers[0], numbers[1],
-                                                       numbers[2], numbers[3],
-                                                       numbers[4], numbers[5],
-                                                       numbers[6], numbers[7])
+                    mtcommand_instance.preset_abs_hxpd(new_val[0], new_val[1],
+                                                       new_val[2], new_val[3],
+                                                       new_val[4], new_val[5],
+                                                       new_val[6], new_val[7])
 
                     self.msg = "Set absolute values for hexapod to \n" \
-                               f" xlin: {numbers[0]}, ylin: {numbers[1]}," \
-                               f" zlin: {numbers[2]}, v_lin: {numbers[3]} \n" \
-                               f" xrot: {numbers[4]}, yrot: {numbers[5]}," \
-                               f" zrot: {numbers[6]}, v_rot: {numbers[7]}"
+                               f" xlin: {new_val[0]}, ylin: {new_val[1]}," \
+                               f" zlin: {new_val[2]}, v_lin: {new_val[3]} \n" \
+                               f" xrot: {new_val[4]}, yrot: {new_val[5]}," \
+                               f" zrot: {new_val[6]}, v_rot: {new_val[7]}"
 
                 elif "SETREL" in self.user_command:
                     positions = multicast_instance.get_hexapod_positions()
-                    new_xlin = positions[0] + numbers[0]
-                    new_ylin = positions[1] + numbers[1]
-                    new_zlin = positions[2] + numbers[2]
-                    new_xrot = positions[4] + numbers[4]
-                    new_yrot = positions[5] + numbers[5]
-                    new_zrot = positions[6] + numbers[6]
+                    new_xlin = positions[0] + new_val[0]
+                    new_ylin = positions[1] + new_val[1]
+                    new_zlin = positions[2] + new_val[2]
+                    new_xrot = positions[4] + new_val[4]
+                    new_yrot = positions[5] + new_val[5]
+                    new_zrot = positions[6] + new_val[6]
                     mtcommand_instance.preset_abs_hxpd(new_xlin, new_ylin,
-                                                       new_zlin, numbers[3],
+                                                       new_zlin, new_val[3],
                                                        new_xrot, new_yrot,
-                                                       new_zrot, numbers[7])
-                    self.msg = "adding relative values for hexapod to \n" \
-                               f" xlin: {numbers[0]}, ylin: {numbers[1]}," \
-                               f" zlin: {numbers[2]}, v_lin: {numbers[3]} \n" \
-                               f" xrot: {numbers[4]}, yrot: {numbers[5]}," \
-                               f" zrot: {numbers[6]}, v_rot: {numbers[7]}"
+                                                       new_zrot, new_val[7])
+                    self.msg = "adding relative values for hexapod: \n" \
+                               f" xlin: {new_val[0]}, ylin: {new_val[1]}," \
+                               f" zlin: {new_val[2]}, v_lin: {new_val[3]} \n" \
+                               f" xrot: {new_val[4]}, yrot: {new_val[5]}," \
+                               f" zrot: {new_val[6]}, v_rot: {new_val[7]}"
 
         elif "DEACTIVATE" in self.user_command:
             mtcommand_instance.deactivate_hxpd()
@@ -359,62 +364,89 @@ class UDPCommandParser:
             mtcommand_instance.activate_hxpd()
         elif "STOP" in self.user_command:
             mtcommand_instance.stop_hxpd()
+        elif "INTERLOCK" in self.user_command():
+            mtcommand_instance.interlock_hxpd()
         elif "ERROR" in self.user_command:
             mtcommand_instance.acknowledge_error_on_hxpd()
 
         else:
             self.msg = 'message type not recognized. Correct types for ' \
                        'hexapod are: "GETABS", "SETABS", "SETREL", ' \
-                       '"ACTIVATE", "DEACTIVATE", "STOP" "ERROR"'
+                       '"ACTIVATE", "DEACTIVATE", "STOP", "INTERLOCK", "ERROR"'
 
+    # # # # # Polar parsing section # # # # #
     def polar_control(self):
         self.user_command = self.user_command[6:]
 
-    def new_variable(self):
-        self.user_command = self.user_command.replace('variable:', '')
 
-        try:
-            # telnet_msg is in form "variable=value" or "variable", so
-            # check there is one or no "=" signs
-            assert self.user_command.count("=") <= 1
 
-        except AssertionError:
-            string = "More than one equals sign in message. Don't assert."
-            self.msg = string
 
+        if "GETABS" in self.user_command:
+            positions = multicast_instance.get_polar_position()
+            message = f"\n P_soll[deg]: {positions[0]},"
+            self.msg = message
+        elif "ACTIVATE" in self.user_command:
+            mtcommand_instance.activate_polar()
+        elif "DEACTIVATE" in self.user_command:
+            mtcommand_instance.deactivate_polar()
+        elif "STOP" in self.user_command:
+            mtcommand_instance.stop_polar()
+        elif "ERROR" in self.user_command:
+            mtcommand_instance.acknowledge_error_on_polar()
+        elif "SETABS" in self.user_command:
+            mtcommand_instance.preset_abs_polar()
+        elif "SETREL" in self.user_command:
+            mtcommand_instance.preset_rel_polar()
         else:
-            # If 1 =  sign, then we know something is being set
-            if self.user_command.count("=") == 1:
-                # Replace = with : to parse into temp JSON
-                variable_name, value = self.user_command.split('=', 1)
-                string = "no"
-                self.msg = string
-
-            # if no "=" sign, then user wants value of variable_name given
-            else:
-                assert self.user_command.count("=") == 0  # Should never fail
-                self.return_variable()
-
-    def return_variable(self):
-        if self.user_command in dict_:
-
-            string = f'The set value for {self.user_command} ' \
-                     f'is {dict_[self.user_command]}'
-            self.msg = string
-
-        else:
-            string = f"{self.user_command} was not found/was never set"
-            self.msg = string
-
-    def clear_variables(self):
-        print('Clearing variables')
-        dict_.clear()
-        string = "All the variables were cleared"
-        self.msg = string
-
-    def return_variables_in_json(self):
-        string = json.dumps(dict_)
-        self.msg = string
+            self.msg = 'message type not recognized. Correct types for polar' \
+                       'are: "GETABS", "SETABS", "SETREL", ' \
+                       '"ACTIVATE", "DEACTIVATE", "STOP", "ERROR"'
+    # # # # # Old methods # # # # #
+    # def new_variable(self):
+    #     self.user_command = self.user_command.replace('variable:', '')
+    #
+    #     try:
+    #         # telnet_msg is in form "variable=value" or "variable", so
+    #         # check there is one or no "=" signs
+    #         assert self.user_command.count("=") <= 1
+    #
+    #     except AssertionError:
+    #         string = "More than one equals sign in message. Don't assert."
+    #         self.msg = string
+    #
+    #     else:
+    #         # If 1 =  sign, then we know something is being set
+    #         if self.user_command.count("=") == 1:
+    #             # Replace = with : to parse into temp JSON
+    #             variable_name, value = self.user_command.split('=', 1)
+    #             string = "no"
+    #             self.msg = string
+    #
+    #         # if no "=" sign, then user wants value of variable_name given
+    #         else:
+    #             assert self.user_command.count("=") == 0  # Should never fail
+    #             self.return_variable()
+    #
+    # def return_variable(self):
+    #     if self.user_command in dict_:
+    #
+    #         string = f'The set value for {self.user_command} ' \
+    #                  f'is {dict_[self.user_command]}'
+    #         self.msg = string
+    #
+    #     else:
+    #         string = f"{self.user_command} was not found/was never set"
+    #         self.msg = string
+    #
+    # def clear_variables(self):
+    #     print('Clearing variables')
+    #     dict_.clear()
+    #     string = "All the variables were cleared"
+    #     self.msg = string
+    #
+    # def return_variables_in_json(self):
+    #     string = json.dumps(dict_)
+    #     self.msg = string
 
     # def multicast_variable(self):
     #     # Finds the location of the variable in the multicast message
@@ -426,11 +458,18 @@ class UDPCommandParser:
     #     multicast_var = multicast_var.replace('"', '').split(",", 1)[0]
     #     self.set_message(multicast_var)
 
-
     def return_message(self):
         return self.msg
 
 class MulticastReceiver:
+    """
+    This class handles the receiving of the output data from the MT Subreflector
+    It is sent to a multicast port by  the subreflector_client.py module, and
+    picked up here (as well as anywhere else) for decoding. This is then used
+    to read the output data of the subreflector, and see if the input comands
+    gave the desired change, for example.
+    """
+
 
     def __init__(self):
         self.sock = None  # set in __init__ for PEP-8 consistency
@@ -473,7 +512,7 @@ class MulticastReceiver:
             print(f"Assertion of expected static data failed: {e}")
 
     def deepcopy_mcast_data(self):
-        # Deep copy to avoid any bugs
+        # Deep copy to avoid any issues with comparisons
         self.last_msg = copy.deepcopy(self.data)
 
     def get_new_status(self):
@@ -489,8 +528,8 @@ class MulticastReceiver:
 
     def find_diferences(self):
         self.assert_static_data()
-        self.data["status-data-interlock"]["simulation"] = "hell"
-        self.data["status-data-interlock"]["override"] = "poop"
+        self.data["status-data-interlock"]["simulation"] = "hello"
+        self.data["status-data-interlock"]["override"] = "world"
 
         list = ["status-data-interlock",
                 "status-data-polarization-drive",
@@ -506,7 +545,8 @@ class MulticastReceiver:
         differences = []
         for item in list:
             value = {k: self.data[item][k] for k, _ in
-                     set(self.data[item].items()) - set(self.last_msg[item].items())}
+                     set(self.data[item].items()) -
+                     set(self.last_msg[item].items())}
 
             # value = {k: self.data[item] for k in set(self.data[item]) -
             #          set(self.last_msg[item])}
@@ -517,6 +557,14 @@ class MulticastReceiver:
                 differences += (item, value)
 
         print(differences)
+
+    def get_polar_position(self):
+        self.get_new_status()
+        # local to prevent race condition
+        lastmessage = self.last_msg
+        p_soll = lastmessage["status-data-polarization-drive"]\
+            ["current-actual-position-[deg]"]
+        return (p_soll)
 
     def get_hexapod_positions(self):
         self.get_new_status()
