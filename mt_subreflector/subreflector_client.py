@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 
-import os
-import sys
 import time
 import json
 import socket
 import struct
-import pickle
 import logging
 from astropy.time import Time
 
@@ -14,35 +11,45 @@ from astropy.time import Time
 class SubreflectorClient:
 
     def __init__(self, use_test_server=False):
+        self.sock = None
         self.SR_ADDR = "***REMOVED***"
         self.LOCAL_ADDR = '***REMOVED***'
-        self.SUBREF_PORT = ***REMOVED***
+        self.SR_PORT = ***REMOVED***
         self.MULTICAST = ('***REMOVED***', ***REMOVED***)
         self.chosen_server = self.use_test_server(use_test_server)
+        self.connection_flag = False
+
+
+    def main(self):
         self.activate_multicasting()
-        self.main()
+        self.make_connection()
 
     def activate_multicasting(self):
         # Sets up multicast socket for later use
         self.multicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.multicast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
 
-    def use_test_server(self, flag):
+    def use_test_server(self, test_server):
         """
         Swaps real SR address for local if instance of class is needed for tests
         :param flag: bool
             if flag set to true, the address for the test server is used instead
-        :return: None
+        :return: IP address and port for the respective subreflector
         """
 
-        if flag:
-            print("Connected to local MockSubreflector")
-            return (self.LOCAL_ADDR, self.SUBREF_PORT)
+        if test_server:
+            msg = "Connected to local subreflector in MockSubreflector.py"
+            print(msg)
+            logging.debug(msg)
+            return self.LOCAL_ADDR, self.SR_PORT
         else:
-            print("Connected to mt_subreflector")
-            return (self.SR_ADDR, self.SUBREF_PORT)
+            msg = f"Connected to mt_subreflector. IP: {self.SR_ADDR} - " \
+                  f"Port: {self.SR_PORT}"
+            print(msg)
+            logging.debug(msg)
+            return self.SR_ADDR, self.SR_PORT
 
-    def main(self):
+    def make_connection(self):
         """
 
         :return:
@@ -59,14 +66,14 @@ class SubreflectorClient:
                 logging.debug(f"TCP Socket connected at IP "
                               f"Address {self.sock.getsockname()[0]} and "
                               f"port {self.sock.getsockname()[1]}")
-                self.sock.settimeout(10)
+                self.sock.settimeout(8)
                 logging.debug(f"socket timeout set to {self.sock.gettimeout()}")
-                self.make_connection(self.sock)
+                self.recieve_data(self.sock)
             except ConnectionError as E:
                 logging.exception("Error connecting to server. May not be found")
                 print(f"Could not connect to the Subreflector: {E}")
 
-    def make_connection(self, sock):
+    def recieve_data(self, sock):
         full_msg = b''
         sock.send(b"\n")  # Initial message is needed to start stream
         count = 0
@@ -107,7 +114,14 @@ class SubreflectorClient:
                     print(f"\rmessage sent x{count}", end='')
                     self.multicast_sock.sendto(status_message, self.MULTICAST)
 
-    # TODO: close socket and module when subreflectorprogram is shut down?msg
+            finally:
+                if self.connection_flag:
+                    self.connection_flag = False  # resets the flag
+                    break
+
+    def end_connection(self):
+        self.connection_flag = True
+
     def package_msg(self, binary_string):
         """
         Take given binary string and parses it to be made into a JSON, then
@@ -271,20 +285,20 @@ class SubreflectorClient:
                         ###
                         'detailed-list-of-individual-warnings.-please-'
                         'refer-structure-5.11': polar[56],
-                        'position-trajectory-[deg]': polar[56],
-                        'current-actual-position-[deg]': polar[57],
-                        'current-position-offset-[deg]': polar[58],
-                        'current-position-deviation-[deg]': polar[59],
-                        'current-web-speed-[deg-/-s]': polar[60],
-                        'current-speed-[deg-/-s]': polar[61],
-                        'current-speed-deviation-[deg-/-s': polar[62],
-                        'current-acceleration-[deg-/-s²]': polar[63],
+                        'position-trajectory[deg]': polar[56],
+                        'current-actual-position[deg]': polar[57],
+                        'current-position-offset[deg]': polar[58],
+                        'current-position-deviation[deg]': polar[59],
+                        'current-web-speed[deg-/-s]': polar[60],
+                        'current-speed[deg-/-s]': polar[61],
+                        'current-speed-deviation[deg-/-s': polar[62],
+                        'current-acceleration[deg-/-s²]': polar[63],
                         'display-of-the-selected-motors-(bit-coded)': polar[64],
                         ###
-                        'engine1-current-position-[deg]': polar[65],
-                        'engine1-current-speed-[deg-/-s]': polar[66],
-                        'engine1-current-torque-[nm]': polar[67],
-                        'engine1-current-engine-utilization-[%]': polar[68],
+                        'engine1-current-position[deg]': polar[65],
+                        'engine1-current-speed[deg-/-s]': polar[66],
+                        'engine1-current-torque[nm]': polar[67],
+                        'engine1-current-engine-utilization[%]': polar[68],
                         'engine1-initialization': polar[69],
                         'engine1-engine-ready': polar[70],
                         'engine1-engine-active': polar[71],
@@ -304,10 +318,10 @@ class SubreflectorClient:
                         'engine1-maximum-speed-achieved': polar[85],
                         'engine1-maximum-torque-achieved': polar[86],
                         ###
-                        'engine2-current-position-[deg]': polar[87],
-                        'engine2-current-speed-[deg-/-s]': polar[88],
-                        'engine2-current-torque-[nm]': polar[89],
-                        'engine2-current-engine-utilization-[%]': polar[90],
+                        'engine2-current-position[deg]': polar[87],
+                        'engine2-current-speed[deg-/-s]': polar[88],
+                        'engine2-current-torque[nm]': polar[89],
+                        'engine2-current-engine-utilization[%]': polar[90],
                         'engine2-initialization': polar[91],
                         'engine2-engine-ready': polar[92],
                         'engine2-engine-active': polar[93],
@@ -340,12 +354,12 @@ class SubreflectorClient:
                 'status-data-hexapod-drive':
                     {
                         'status_of_the_subsystem_': hxpd[0],
-                        'current_position_x_linear_[mm]': hxpd[1],
-                        'current_position_y_linear_[mm]': hxpd[2],
-                        'current_position_z_linear_[mm]': hxpd[3],
-                        'current_position_x_rotation_[deg]': hxpd[4],
-                        'current_position_y_rotation_[deg]': hxpd[5],
-                        'current_position_z_rotation_[deg]': hxpd[6],
+                        'current_position_x_linear[mm]': hxpd[1],
+                        'current_position_y_linear[mm]': hxpd[2],
+                        'current_position_z_linear[mm]': hxpd[3],
+                        'current_position_x_rotation[deg]': hxpd[4],
+                        'current_position_y_rotation[deg]': hxpd[5],
+                        'current_position_z_rotation[deg]': hxpd[6],
                         'collective_status_error': hxpd[7],
                         'collective_status_warning': hxpd[8],
                         # _warning_struct
@@ -775,16 +789,16 @@ class SubreflectorClient:
                         'command_response_of_the_mode_command_hexapod': hxpd[419],
                         'last_sent_mode_command_linear': hxpd[420],
                         'command_response_of_the_mode_command_linear': hxpd[421],
-                        'target_position_x_linear_[mm]': hxpd[422],
-                        'nominal_position_y_linear_[mm]': hxpd[423],
-                        'target_position_z_linear_[mm]': hxpd[424],
-                        'target_speed_linear_[mm_/_s]': hxpd[425],
+                        'target_position_x_linear[mm]': hxpd[422],
+                        'nominal_position_y_linear[mm]': hxpd[423],
+                        'target_position_z_linear[mm]': hxpd[424],
+                        'target_speed_linear[mm/s]': hxpd[425],
                         'last_sent_mode_command_rotation': hxpd[426],
                         'command_response_of_the_mode_command_rotation': hxpd[427],
-                        'target_position_x_rotation_[deg]': hxpd[428],
-                        'target_position_y_rotation_[deg]': hxpd[429],
-                        'target_position_z_rotation_[deg]': hxpd[430],
-                        'target_speed_linear_[deg_/_s]': hxpd[431],
+                        'target_position_x_rotation[deg]': hxpd[428],
+                        'target_position_y_rotation[deg]': hxpd[429],
+                        'target_position_z_rotation[deg]': hxpd[430],
+                        'target_speed_linear[deg/s]': hxpd[431],
                         'last_sent_parameter_command': hxpd[432],
                         'command_response_of_the_parameter_command': hxpd[433],
                         'parameter_1_of_the_parameter_command': hxpd[434],
@@ -806,7 +820,7 @@ class SubreflectorClient:
                         'secondary-focus-position': focus[4],
                         'receiver-change-position': focus[5],
                         'display-of-the-selected-motors(bit-coded)': focus[6],
-                        'current-target-position-[mm]': focus[7],
+                        'current-target-position[mm]': focus[7],
                         'current-position[mm]': focus[8],
                         'current-speed[mm/s]': focus[9],
                         ####-start-of-spindles-####
@@ -960,205 +974,205 @@ class SubreflectorClient:
 
                 'status-data-active-surface':
                     {
-                        'Elevation-angle-[deg]': asf[0],
+                        'Elevation-angle[deg]': asf[0],
                         'Status-of-the-subsystem': asf[1],
                         'Warning-File-offset-table-could-not-be-read': asf[2],
                         'Collective-status-warning': asf[3],
                         'Collective-status-error': asf[4],
                         'Emergency-stop-software-active': asf[5],
                         'Emergency-stop-hardware-active': asf[6],
-                        'motor-status-motor1-[bit-coded]': asf[7],
-                        'motor-status-motor2-[bit-coded]': asf[8],
-                        'motor-status-motor3-[bit-coded]': asf[9],
-                        'motor-status-motor4-[bit-coded]': asf[10],
-                        'motor-status-motor5-[bit-coded]': asf[11],
-                        'motor-status-motor6-[bit-coded]': asf[12],
-                        'motor-status-motor7-[bit-coded]': asf[13],
-                        'motor-status-motor8-[bit-coded]': asf[14],
-                        'motor-status-motor9-[bit-coded]': asf[15],
-                        'motor-status-motor10-[bit-coded]': asf[16],
-                        'motor-status-motor11-[bit-coded]': asf[17],
-                        'motor-status-motor12-[bit-coded]': asf[18],
-                        'motor-status-motor13-[bit-coded]': asf[19],
-                        'motor-status-motor14-[bit-coded]': asf[20],
-                        'motor-status-motor15-[bit-coded]': asf[21],
-                        'motor-status-motor16-[bit-coded]': asf[22],
-                        'motor-status-motor17-[bit-coded]': asf[23],
-                        'motor-status-motor18-[bit-coded]': asf[24],
-                        'motor-status-motor19-[bit-coded]': asf[25],
-                        'motor-status-motor20-[bit-coded]': asf[26],
-                        'motor-status-motor21-[bit-coded]': asf[27],
-                        'motor-status-motor22-[bit-coded]': asf[28],
-                        'motor-status-motor23-[bit-coded]': asf[29],
-                        'motor-status-motor24-[bit-coded]': asf[30],
-                        'motor-status-motor25-[bit-coded]': asf[31],
-                        'motor-status-motor26-[bit-coded]': asf[32],
-                        'motor-status-motor27-[bit-coded]': asf[33],
-                        'motor-status-motor28-[bit-coded]': asf[34],
-                        'motor-status-motor29-[bit-coded]': asf[35],
-                        'motor-status-motor30-[bit-coded]': asf[36],
-                        'motor-status-motor31-[bit-coded]': asf[37],
-                        'motor-status-motor32-[bit-coded]': asf[38],
-                        'motor-status-motor33-[bit-coded]': asf[39],
-                        'motor-status-motor34-[bit-coded]': asf[40],
-                        'motor-status-motor35-[bit-coded]': asf[41],
-                        'motor-status-motor36-[bit-coded]': asf[42],
-                        'motor-status-motor37-[bit-coded]': asf[43],
-                        'motor-status-motor38-[bit-coded]': asf[44],
-                        'motor-status-motor39-[bit-coded]': asf[45],
-                        'motor-status-motor40-[bit-coded]': asf[46],
-                        'motor-status-motor41-[bit-coded]': asf[47],
-                        'motor-status-motor42-[bit-coded]': asf[48],
-                        'motor-status-motor43-[bit-coded]': asf[49],
-                        'motor-status-motor44-[bit-coded]': asf[50],
-                        'motor-status-motor45-[bit-coded]': asf[51],
-                        'motor-status-motor46-[bit-coded]': asf[52],
-                        'motor-status-motor47-[bit-coded]': asf[53],
-                        'motor-status-motor48-[bit-coded]': asf[54],
-                        'motor-status-motor49-[bit-coded]': asf[55],
-                        'motor-status-motor50-[bit-coded]': asf[56],
-                        'motor-status-motor51-[bit-coded]': asf[57],
-                        'motor-status-motor52-[bit-coded]': asf[58],
-                        'motor-status-motor53-[bit-coded]': asf[59],
-                        'motor-status-motor54-[bit-coded]': asf[60],
-                        'motor-status-motor55-[bit-coded]': asf[61],
-                        'motor-status-motor56-[bit-coded]': asf[62],
-                        'motor-status-motor57-[bit-coded]': asf[63],
-                        'motor-status-motor58-[bit-coded]': asf[64],
-                        'motor-status-motor59-[bit-coded]': asf[65],
-                        'motor-status-motor60-[bit-coded]': asf[66],
-                        'motor-status-motor61-[bit-coded]': asf[67],
-                        'motor-status-motor62-[bit-coded]': asf[68],
-                        'motor-status-motor63-[bit-coded]': asf[69],
-                        'motor-status-motor64-[bit-coded]': asf[70],
-                        'motor-status-motor65-[bit-coded]': asf[71],
-                        'motor-status-motor66-[bit-coded]': asf[72],
-                        'motor-status-motor67-[bit-coded]': asf[73],
-                        'motor-status-motor68-[bit-coded]': asf[74],
-                        'motor-status-motor69-[bit-coded]': asf[75],
-                        'motor-status-motor70-[bit-coded]': asf[76],
-                        'motor-status-motor71-[bit-coded]': asf[77],
-                        'motor-status-motor72-[bit-coded]': asf[78],
-                        'motor-status-motor73-[bit-coded]': asf[79],
-                        'motor-status-motor74-[bit-coded]': asf[80],
-                        'motor-status-motor75-[bit-coded]': asf[81],
-                        'motor-status-motor76-[bit-coded]': asf[82],
-                        'motor-status-motor77-[bit-coded]': asf[83],
-                        'motor-status-motor78-[bit-coded]': asf[84],
-                        'motor-status-motor79-[bit-coded]': asf[85],
-                        'motor-status-motor80-[bit-coded]': asf[86],
-                        'motor-status-motor81-[bit-coded]': asf[87],
-                        'motor-status-motor82-[bit-coded]': asf[88],
-                        'motor-status-motor83-[bit-coded]': asf[89],
-                        'motor-status-motor84-[bit-coded]': asf[90],
-                        'motor-status-motor85-[bit-coded]': asf[91],
-                        'motor-status-motor86-[bit-coded]': asf[92],
-                        'motor-status-motor87-[bit-coded]': asf[93],
-                        'motor-status-motor88-[bit-coded]': asf[94],
-                        'motor-status-motor89-[bit-coded]': asf[95],
-                        'motor-status-motor90-[bit-coded]': asf[96],
-                        'motor-status-motor91-[bit-coded]': asf[97],
-                        'motor-status-motor92-[bit-coded]': asf[98],
-                        'motor-status-motor93-[bit-coded]': asf[99],
-                        'motor-status-motor94-[bit-coded]': asf[100],
-                        'motor-status-motor95-[bit-coded]': asf[101],
-                        'motor-status-motor96-[bit-coded]': asf[102],
-                        'current-position-motor1-[μm]': asf[103],
-                        'current-position-motor2-[μm]': asf[104],
-                        'current-position-motor3-[μm]': asf[105],
-                        'current-position-motor4-[μm]': asf[106],
-                        'current-position-motor5-[μm]': asf[107],
-                        'current-position-motor6-[μm]': asf[108],
-                        'current-position-motor7-[μm]': asf[109],
-                        'current-position-motor8-[μm]': asf[110],
-                        'current-position-motor9-[μm]': asf[111],
-                        'current-position-motor10-[μm]': asf[112],
-                        'current-position-motor11-[μm]': asf[113],
-                        'current-position-motor12-[μm]': asf[114],
-                        'current-position-motor13-[μm]': asf[115],
-                        'current-position-motor14-[μm]': asf[116],
-                        'current-position-motor15-[μm]': asf[117],
-                        'current-position-motor16-[μm]': asf[118],
-                        'current-position-motor17-[μm]': asf[119],
-                        'current-position-motor18-[μm]': asf[120],
-                        'current-position-motor19-[μm]': asf[121],
-                        'current-position-motor20-[μm]': asf[122],
-                        'current-position-motor21-[μm]': asf[123],
-                        'current-position-motor22-[μm]': asf[124],
-                        'current-position-motor23-[μm]': asf[125],
-                        'current-position-motor24-[μm]': asf[126],
-                        'current-position-motor25-[μm]': asf[127],
-                        'current-position-motor26-[μm]': asf[128],
-                        'current-position-motor27-[μm]': asf[129],
-                        'current-position-motor28-[μm]': asf[130],
-                        'current-position-motor29-[μm]': asf[131],
-                        'current-position-motor30-[μm]': asf[132],
-                        'current-position-motor31-[μm]': asf[133],
-                        'current-position-motor32-[μm]': asf[134],
-                        'current-position-motor33-[μm]': asf[135],
-                        'current-position-motor34-[μm]': asf[136],
-                        'current-position-motor35-[μm]': asf[137],
-                        'current-position-motor36-[μm]': asf[138],
-                        'current-position-motor37-[μm]': asf[139],
-                        'current-position-motor38-[μm]': asf[140],
-                        'current-position-motor39-[μm]': asf[141],
-                        'current-position-motor40-[μm]': asf[142],
-                        'current-position-motor41-[μm]': asf[143],
-                        'current-position-motor42-[μm]': asf[144],
-                        'current-position-motor43-[μm]': asf[145],
-                        'current-position-motor44-[μm]': asf[146],
-                        'current-position-motor45-[μm]': asf[147],
-                        'current-position-motor46-[μm]': asf[148],
-                        'current-position-motor47-[μm]': asf[149],
-                        'current-position-motor48-[μm]': asf[150],
-                        'current-position-motor49-[μm]': asf[151],
-                        'current-position-motor50-[μm]': asf[152],
-                        'current-position-motor51-[μm]': asf[153],
-                        'current-position-motor52-[μm]': asf[154],
-                        'current-position-motor53-[μm]': asf[155],
-                        'current-position-motor54-[μm]': asf[156],
-                        'current-position-motor55-[μm]': asf[157],
-                        'current-position-motor56-[μm]': asf[158],
-                        'current-position-motor57-[μm]': asf[159],
-                        'current-position-motor58-[μm]': asf[160],
-                        'current-position-motor59-[μm]': asf[161],
-                        'current-position-motor60-[μm]': asf[162],
-                        'current-position-motor61-[μm]': asf[163],
-                        'current-position-motor62-[μm]': asf[164],
-                        'current-position-motor63-[μm]': asf[165],
-                        'current-position-motor64-[μm]': asf[166],
-                        'current-position-motor65-[μm]': asf[167],
-                        'current-position-motor66-[μm]': asf[168],
-                        'current-position-motor67-[μm]': asf[169],
-                        'current-position-motor68-[μm]': asf[170],
-                        'current-position-motor69-[μm]': asf[171],
-                        'current-position-motor70-[μm]': asf[172],
-                        'current-position-motor71-[μm]': asf[173],
-                        'current-position-motor72-[μm]': asf[174],
-                        'current-position-motor73-[μm]': asf[175],
-                        'current-position-motor74-[μm]': asf[176],
-                        'current-position-motor75-[μm]': asf[177],
-                        'current-position-motor76-[μm]': asf[178],
-                        'current-position-motor77-[μm]': asf[179],
-                        'current-position-motor78-[μm]': asf[180],
-                        'current-position-motor79-[μm]': asf[181],
-                        'current-position-motor80-[μm]': asf[182],
-                        'current-position-motor81-[μm]': asf[183],
-                        'current-position-motor82-[μm]': asf[184],
-                        'current-position-motor83-[μm]': asf[185],
-                        'current-position-motor84-[μm]': asf[186],
-                        'current-position-motor85-[μm]': asf[187],
-                        'current-position-motor86-[μm]': asf[188],
-                        'current-position-motor87-[μm]': asf[189],
-                        'current-position-motor88-[μm]': asf[190],
-                        'current-position-motor89-[μm]': asf[191],
-                        'current-position-motor90-[μm]': asf[192],
-                        'current-position-motor91-[μm]': asf[193],
-                        'current-position-motor92-[μm]': asf[194],
-                        'current-position-motor93-[μm]': asf[195],
-                        'current-position-motor94-[μm]': asf[196],
-                        'current-position-motor95-[μm]': asf[197],
-                        'current-position-motor96-[μm]': asf[198],
+                        'motor-status-motor1[bit-coded]': asf[7],
+                        'motor-status-motor2[bit-coded]': asf[8],
+                        'motor-status-motor3[bit-coded]': asf[9],
+                        'motor-status-motor4[bit-coded]': asf[10],
+                        'motor-status-motor5[bit-coded]': asf[11],
+                        'motor-status-motor6[bit-coded]': asf[12],
+                        'motor-status-motor7[bit-coded]': asf[13],
+                        'motor-status-motor8[bit-coded]': asf[14],
+                        'motor-status-motor9[bit-coded]': asf[15],
+                        'motor-status-motor10[bit-coded]': asf[16],
+                        'motor-status-motor11[bit-coded]': asf[17],
+                        'motor-status-motor12[bit-coded]': asf[18],
+                        'motor-status-motor13[bit-coded]': asf[19],
+                        'motor-status-motor14[bit-coded]': asf[20],
+                        'motor-status-motor15[bit-coded]': asf[21],
+                        'motor-status-motor16[bit-coded]': asf[22],
+                        'motor-status-motor17[bit-coded]': asf[23],
+                        'motor-status-motor18[bit-coded]': asf[24],
+                        'motor-status-motor19[bit-coded]': asf[25],
+                        'motor-status-motor20[bit-coded]': asf[26],
+                        'motor-status-motor21[bit-coded]': asf[27],
+                        'motor-status-motor22[bit-coded]': asf[28],
+                        'motor-status-motor23[bit-coded]': asf[29],
+                        'motor-status-motor24[bit-coded]': asf[30],
+                        'motor-status-motor25[bit-coded]': asf[31],
+                        'motor-status-motor26[bit-coded]': asf[32],
+                        'motor-status-motor27[bit-coded]': asf[33],
+                        'motor-status-motor28[bit-coded]': asf[34],
+                        'motor-status-motor29[bit-coded]': asf[35],
+                        'motor-status-motor30[bit-coded]': asf[36],
+                        'motor-status-motor31[bit-coded]': asf[37],
+                        'motor-status-motor32[bit-coded]': asf[38],
+                        'motor-status-motor33[bit-coded]': asf[39],
+                        'motor-status-motor34[bit-coded]': asf[40],
+                        'motor-status-motor35[bit-coded]': asf[41],
+                        'motor-status-motor36[bit-coded]': asf[42],
+                        'motor-status-motor37[bit-coded]': asf[43],
+                        'motor-status-motor38[bit-coded]': asf[44],
+                        'motor-status-motor39[bit-coded]': asf[45],
+                        'motor-status-motor40[bit-coded]': asf[46],
+                        'motor-status-motor41[bit-coded]': asf[47],
+                        'motor-status-motor42[bit-coded]': asf[48],
+                        'motor-status-motor43[bit-coded]': asf[49],
+                        'motor-status-motor44[bit-coded]': asf[50],
+                        'motor-status-motor45[bit-coded]': asf[51],
+                        'motor-status-motor46[bit-coded]': asf[52],
+                        'motor-status-motor47[bit-coded]': asf[53],
+                        'motor-status-motor48[bit-coded]': asf[54],
+                        'motor-status-motor49[bit-coded]': asf[55],
+                        'motor-status-motor50[bit-coded]': asf[56],
+                        'motor-status-motor51[bit-coded]': asf[57],
+                        'motor-status-motor52[bit-coded]': asf[58],
+                        'motor-status-motor53[bit-coded]': asf[59],
+                        'motor-status-motor54[bit-coded]': asf[60],
+                        'motor-status-motor55[bit-coded]': asf[61],
+                        'motor-status-motor56[bit-coded]': asf[62],
+                        'motor-status-motor57[bit-coded]': asf[63],
+                        'motor-status-motor58[bit-coded]': asf[64],
+                        'motor-status-motor59[bit-coded]': asf[65],
+                        'motor-status-motor60[bit-coded]': asf[66],
+                        'motor-status-motor61[bit-coded]': asf[67],
+                        'motor-status-motor62[bit-coded]': asf[68],
+                        'motor-status-motor63[bit-coded]': asf[69],
+                        'motor-status-motor64[bit-coded]': asf[70],
+                        'motor-status-motor65[bit-coded]': asf[71],
+                        'motor-status-motor66[bit-coded]': asf[72],
+                        'motor-status-motor67[bit-coded]': asf[73],
+                        'motor-status-motor68[bit-coded]': asf[74],
+                        'motor-status-motor69[bit-coded]': asf[75],
+                        'motor-status-motor70[bit-coded]': asf[76],
+                        'motor-status-motor71[bit-coded]': asf[77],
+                        'motor-status-motor72[bit-coded]': asf[78],
+                        'motor-status-motor73[bit-coded]': asf[79],
+                        'motor-status-motor74[bit-coded]': asf[80],
+                        'motor-status-motor75[bit-coded]': asf[81],
+                        'motor-status-motor76[bit-coded]': asf[82],
+                        'motor-status-motor77[bit-coded]': asf[83],
+                        'motor-status-motor78[bit-coded]': asf[84],
+                        'motor-status-motor79[bit-coded]': asf[85],
+                        'motor-status-motor80[bit-coded]': asf[86],
+                        'motor-status-motor81[bit-coded]': asf[87],
+                        'motor-status-motor82[bit-coded]': asf[88],
+                        'motor-status-motor83[bit-coded]': asf[89],
+                        'motor-status-motor84[bit-coded]': asf[90],
+                        'motor-status-motor85[bit-coded]': asf[91],
+                        'motor-status-motor86[bit-coded]': asf[92],
+                        'motor-status-motor87[bit-coded]': asf[93],
+                        'motor-status-motor88[bit-coded]': asf[94],
+                        'motor-status-motor89[bit-coded]': asf[95],
+                        'motor-status-motor90[bit-coded]': asf[96],
+                        'motor-status-motor91[bit-coded]': asf[97],
+                        'motor-status-motor92[bit-coded]': asf[98],
+                        'motor-status-motor93[bit-coded]': asf[99],
+                        'motor-status-motor94[bit-coded]': asf[100],
+                        'motor-status-motor95[bit-coded]': asf[101],
+                        'motor-status-motor96[bit-coded]': asf[102],
+                        'current-position-motor1[um]': asf[103],
+                        'current-position-motor2[um]': asf[104],
+                        'current-position-motor3[um]': asf[105],
+                        'current-position-motor4[um]': asf[106],
+                        'current-position-motor5[um]': asf[107],
+                        'current-position-motor6[um]': asf[108],
+                        'current-position-motor7[um]': asf[109],
+                        'current-position-motor8[um]': asf[110],
+                        'current-position-motor9[um]': asf[111],
+                        'current-position-motor10[um]': asf[112],
+                        'current-position-motor11[um]': asf[113],
+                        'current-position-motor12[um]': asf[114],
+                        'current-position-motor13[um]': asf[115],
+                        'current-position-motor14[um]': asf[116],
+                        'current-position-motor15[um]': asf[117],
+                        'current-position-motor16[um]': asf[118],
+                        'current-position-motor17[um]': asf[119],
+                        'current-position-motor18[um]': asf[120],
+                        'current-position-motor19[um]': asf[121],
+                        'current-position-motor20[um]': asf[122],
+                        'current-position-motor21[um]': asf[123],
+                        'current-position-motor22[um]': asf[124],
+                        'current-position-motor23[um]': asf[125],
+                        'current-position-motor24[um]': asf[126],
+                        'current-position-motor25[um]': asf[127],
+                        'current-position-motor26[um]': asf[128],
+                        'current-position-motor27[um]': asf[129],
+                        'current-position-motor28[um]': asf[130],
+                        'current-position-motor29[um]': asf[131],
+                        'current-position-motor30[um]': asf[132],
+                        'current-position-motor31[um]': asf[133],
+                        'current-position-motor32[um]': asf[134],
+                        'current-position-motor33[um]': asf[135],
+                        'current-position-motor34[um]': asf[136],
+                        'current-position-motor35[um]': asf[137],
+                        'current-position-motor36[um]': asf[138],
+                        'current-position-motor37[um]': asf[139],
+                        'current-position-motor38[um]': asf[140],
+                        'current-position-motor39[um]': asf[141],
+                        'current-position-motor40[um]': asf[142],
+                        'current-position-motor41[um]': asf[143],
+                        'current-position-motor42[um]': asf[144],
+                        'current-position-motor43[um]': asf[145],
+                        'current-position-motor44[um]': asf[146],
+                        'current-position-motor45[um]': asf[147],
+                        'current-position-motor46[um]': asf[148],
+                        'current-position-motor47[um]': asf[149],
+                        'current-position-motor48[um]': asf[150],
+                        'current-position-motor49[um]': asf[151],
+                        'current-position-motor50[um]': asf[152],
+                        'current-position-motor51[um]': asf[153],
+                        'current-position-motor52[um]': asf[154],
+                        'current-position-motor53[um]': asf[155],
+                        'current-position-motor54[um]': asf[156],
+                        'current-position-motor55[um]': asf[157],
+                        'current-position-motor56[um]': asf[158],
+                        'current-position-motor57[um]': asf[159],
+                        'current-position-motor58[um]': asf[160],
+                        'current-position-motor59[um]': asf[161],
+                        'current-position-motor60[um]': asf[162],
+                        'current-position-motor61[um]': asf[163],
+                        'current-position-motor62[um]': asf[164],
+                        'current-position-motor63[um]': asf[165],
+                        'current-position-motor64[um]': asf[166],
+                        'current-position-motor65[um]': asf[167],
+                        'current-position-motor66[um]': asf[168],
+                        'current-position-motor67[um]': asf[169],
+                        'current-position-motor68[um]': asf[170],
+                        'current-position-motor69[um]': asf[171],
+                        'current-position-motor70[um]': asf[172],
+                        'current-position-motor71[um]': asf[173],
+                        'current-position-motor72[um]': asf[174],
+                        'current-position-motor73[um]': asf[175],
+                        'current-position-motor74[um]': asf[176],
+                        'current-position-motor75[um]': asf[177],
+                        'current-position-motor76[um]': asf[178],
+                        'current-position-motor77[um]': asf[179],
+                        'current-position-motor78[um]': asf[180],
+                        'current-position-motor79[um]': asf[181],
+                        'current-position-motor80[um]': asf[182],
+                        'current-position-motor81[um]': asf[183],
+                        'current-position-motor82[um]': asf[184],
+                        'current-position-motor83[um]': asf[185],
+                        'current-position-motor84[um]': asf[186],
+                        'current-position-motor85[um]': asf[187],
+                        'current-position-motor86[um]': asf[188],
+                        'current-position-motor87[um]': asf[189],
+                        'current-position-motor88[um]': asf[190],
+                        'current-position-motor89[um]': asf[191],
+                        'current-position-motor90[um]': asf[192],
+                        'current-position-motor91[um]': asf[193],
+                        'current-position-motor92[um]': asf[194],
+                        'current-position-motor93[um]': asf[195],
+                        'current-position-motor94[um]': asf[196],
+                        'current-position-motor95[um]': asf[197],
+                        'current-position-motor96[um]': asf[198],
                         'drive-number': asf[199],
                         'profibus-address': asf[200],
                         'status-word-1': asf[201],
@@ -1169,12 +1183,12 @@ class SubreflectorClient:
                         'drive-active': asf[206],
                         'position-reached': asf[207],
                         'drive-ready': asf[208],
-                        'current-position-of-the-drive-[μm]': asf[209],
-                        'current-speed-of-the-drive-[μm-/-s]': asf[210],
-                        'current-torque-of-the-drive-[m-x-nm]': asf[211],
-                        'current-temperature-of-the-drive-[celsius]': asf[212],
-                        'error-number-[bit-coded]': asf[213],
-                        'warning-number-[bit-coded]': asf[214],
+                        'current-position-of-the-drive[um]': asf[209],
+                        'current-speed-of-the-drive[um-/-s]': asf[210],
+                        'current-torque-of-the-drive[m-x-nm]': asf[211],
+                        'current-temperature-of-the-drive[celsius]': asf[212],
+                        'error-number[bit-coded]': asf[213],
+                        'warning-number[bit-coded]': asf[214],
                         'position-offset-at-elevation-unknown1': asf[215],
                         'position-offset-at-elevation-unknown2': asf[216],
                         'position-offset-at-elevation-unknown3': asf[217],
@@ -1370,6 +1384,7 @@ class SubreflectorClient:
                 # TODO: last has 3 values, but maunal only shows one
 
             }
+
             return status_message
 
 
@@ -1379,4 +1394,5 @@ if __name__ == '__main__':
         level=logging.DEBUG, format='%(asctime)s - %(levelname)s- %(message)s',
         datefmt='%d-%b-%y %H:%M:%S')
 
-    start_client = SubreflectorClient(use_test_server=False)
+    client_instance = SubreflectorClient(use_test_server=True)
+    client_instance.main()
