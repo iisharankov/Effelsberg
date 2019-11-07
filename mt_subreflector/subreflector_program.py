@@ -9,27 +9,68 @@ import logging
 import threading
 import socketserver
 
-import mt_subreflector.subreflector_client as subreflector_client_module
-import mt_subreflector.mtcommand as mtcommand_module
+# import mt_subreflector.subreflector_client as subreflector_client_module
+# # import mt_subreflector.mtcommand as mtcommand_module
+import subreflector_client
+import mtcommand
+
+# Constants
+UDPTELNET_PORT = ***REMOVED***
+SDH_PORT = 1602  # Port where sdh output can be reached
+SR_MULTI = ***REMOVED***  # Port where subreflector_client.py outputs JSON
+LOCAL_ADDRESS = ''  # local IP
+MULTICAST_GROUP = ***REMOVED***  # Multicast IP address
+
+class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
+    """
+          Simple class that starts listening to the udp-telnet server for
+          any incoming messages. These messages are then accessed and received
+          by MYUDPHandler which calls the necessarily class to parse the user
+          input. This is set up as a non-daemon thread to work in the
+          background, and to hang until closed manually.
+          """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.udp_parser_client = UDPCommandParser()
+        logging.debug("Initialized ThreadingUDPServer")
+
+def start_udp_server():
+    """
+    This function sets up a non-daemon thread to initiate the
+    ThreadingUDPserver in the background. This is the code
+    that connects to the server to read the input data and parse it
+    :return:
+    """
+    dest_address = (LOCAL_ADDRESS, UDPTELNET_PORT)
+    logging.debug(f"ThreadingUDPServer accessing address:"
+                  f" {dest_address[0]}, port: {dest_address[1]}")
+
+    server = ThreadingUDPServer(dest_address, MyUDPHandler, )
+
+    logging.debug(f"Setting server to run forever")
+    t = threading.Thread(target=server.serve_forever, name='UDPSERVER')
+    t.daemon = False  # Do not demonize thread
+    logging.debug(f"ThreadingUDPServer now running in a non-daemon "
+                  f"thread ({threading.current_thread}) in background")
+    t.start()
 
 
 def start_connections():
-    # This try block starts up two unique classes, which created threaded
-    # instances, one calling a server to run in the background, the other
-    # starting an instance in the subreflector_client.py module that receives
-    # and processes the data collected from the SR (subreflector)
+    # TODO: add doc string
     try:
 
-        logging.debug("Start Startup_Subreflector_Client instance")
-        srclient_instance.start_sr_client()
-
         logging.debug("Start UDP server instance")
-        udpserver_instance.start_udp_server()
+        start_udp_server()
+
+        logging.debug("Start Startup_Subreflector_Client instance")
+        StartupSubreflectorClient().start_sr_client()
 
     except Exception as E:
         logging.exception("An exception occured starting the threaded classes")
         raise E
-
+        # self.mcast_receiver = MulticastReceiver()  # For recieving data from SR
+        # self.mtcommand_client = mtcommand.MTCommand()  # Sending commands to SR
 
 class StartupSubreflectorClient:
     """
@@ -42,7 +83,7 @@ class StartupSubreflectorClient:
     def __init__(self):
         self.thread = None
         self.stop_threads = False
-        self.sr_instance = subreflector_client_module.SubreflectorClient(use_test_server=True)
+        self.srclient = subreflector_client.SubreflectorClient(use_test_server=True)
 
 
     def start_sr_client(self):
@@ -56,7 +97,7 @@ class StartupSubreflectorClient:
             logging.debug(f"Creating Thread")
             self.thread = threading.Thread(target=self.run_sr_client, args=(),
                                            name='sr_client_module')
-            self.thread.daemon = True  # Demonize thread
+            self.thread.daemon = False  # Demonize thread
             logging.debug(f"Threading set to {self.thread.daemon}. Starting Thread")
             self.thread.start()
             logging.debug("Thread started successfully")
@@ -74,77 +115,15 @@ class StartupSubreflectorClient:
         creates instance of SubreflectorClient which starts listening to the
         subreflector.
         """
-        self.sr_instance.main()
+        self.srclient.main()
 
     def close_sr_client(self):
         logging.debug("User initiated Subreflector connection reset")
-        self.sr_instance.end_connection()
+        self.srclient.end_connection()
 
         time.sleep(2)
         logging.debug("Starting connection again")
-        self.sr_instance.make_connection()
-
-
-class UDPServer:
-    """
-      Simple class that starts listening to the udp-telnet server for
-      any incomming messages. These messages are then accessed and received by
-      MYUDPHandler which calls the necesarry class to parse the user input. This
-       is set up as a non-daemon thread to work in the background, and to hang
-      until closed manually.
-      """
-
-    def __init__(self):
-        self.server = None  # This is just for pep-8 style
-        logging.debug("Initialized")
-
-    def start_udp_server(self):
-        """
-        This method sets up a non-daemon thread to initiate the
-        ThreadingUDPserver in the background. This is the code
-        that connects to the server to read the input data and parse it
-        :return:
-        """
-        dest_address = (LOCAL_ADDRESS, UDPTELNET_PORT)
-        logging.debug(f"ThreadingUDPServer accessing address:"
-                      f" {dest_address[0]}, port: {dest_address[1]}")
-        self.server = ThreadingUDPServer(dest_address, MyUDPHandler)
-
-        logging.debug(f"Setting server to run forever")
-        t = threading.Thread(target=self.server.serve_forever, name='UDPSERVER')
-
-        t.daemon = False  # Do not demonize thread
-        logging.debug(f"ThreadingUDPServer now running in a non-daemon "
-                      f"thread ({threading.current_thread}) in background")
-        t.start()
-
-    # def stop_udp_telnet(self):
-    #     if self.server:
-    #         print("shutting down telnet")
-    #         self.server.shutdown()
-    #         self.server.server_close()
-    #         self.server = None
-    #     else:
-    #         print("UDP-Telnet already shutdown")
-    #
-    # def return_telnet_status(self):
-    #     if self.server:
-    #         return True
-    #     elif not self.server:
-    #         return False
-    #
-    # def close_sr_program(self):
-    #     doublecheck = ''.join(input("Do you want to close? ").lower().split())
-    #     if doublecheck == 'yes':
-    #         print("Closing Subreflector Program")
-    #         if self.return_telnet_status():
-    #             self.stop_udp_telnet()
-    #         exit()
-    #     elif doublecheck == 'no':
-    #         self.user_input()
-    #     else:
-    #         print("Unrecognized command. Say 'yes' or 'no'")
-    #         self.close_sr_program()
+        self.srclient.make_connection()
 
 
 # Communication class
@@ -157,17 +136,21 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
     and forwarding it to mtcommand.py, which directly communicates to the
     subreflector
     """
-    def handle(self):
 
+
+    def handle(self):
         logging.debug("Telnet: Message received from udp-telnet")
         # takes message, decodes to string and - all whitespace (by rejoining)
         telnet_msg = self.request[0].decode('utf-8')
-        print(telnet_msg)
+        # print(telnet_msg)
         # telnet_msg = ''.join(self.request[0].decode('utf-8').split())
 
         logging.debug("Telnet: Sending message to CommandModule")
-        udp_parser_instnace = UDPCommandParser(telnet_msg)
-        msg = udp_parser_instnace.return_message()
+        
+        self.server.udp_parser_client.check_obsprefix(telnet_msg)
+        msg = self.server.udp_parser_client.return_message()
+        
+        self.server.udp_parser_client.reset()
         logging.debug("Telnet: Message returned from CommandModule")
 
         logging.debug("Telnet: Setting up returnsocket")
@@ -180,28 +163,39 @@ class UDPCommandParser:
     """
     Instantiating this class takes a string and parses it to return the correct
     response to the user
+    TODO: Complete doc string
     """
 
-    def __init__(self, command_message):
+    def __init__(self):
         """
         :param command_message: str - message to parse
         """
-        self.user_command = command_message
+        self.user_command = None
         self.msg = ''
         self.obsprefix = None
         self.commandprefix = None
-        # self.multicastdata = sdh_multicast()
-        self.check_obsprefix()
+        self.mcast_receiver = MulticastReceiver()  # For recieving data from SR
+        self.mtcommand_client = mtcommand.MTCommand()  # Sending commands to SR
+
+
+    def reset(self):
+        self.user_command = None  # command_message
+        self.msg = ''
+        self.obsprefix = None
+        self.commandprefix = None
+        logging.debug("Parser values reset")
 
     # # # # # General parsing section # # # # #
-    def check_obsprefix(self):
-
+    def check_obsprefix(self, command):
+        self.user_command = command
         print(threading.enumerate())
         # Checks to make sure the command starts with correct string
         if self.user_command.startswith("EFFELSBERG:"):
             self.obsprefix = 'EFFELSBERG:'
             self.user_command = self.user_command[11:]
             self.check_mtsubreflector_called()
+        elif self.user_command.startswith("."):
+            self.mcast_receiver.get_new_status()
         else:
             logging.info("Given command had the incorrect prefix "
                          "(was not 'EFFELSBERG:')")
@@ -239,35 +233,40 @@ class UDPCommandParser:
                      f'"RESETCONNECTION'
             self.msg = string
 
+
     # # # # # Interlock parsing section # # # # #
     def interlock_control(self):
         # Splits user_command into command part, and if number, as 2nd val
-        try:
-            command, value = self.user_command[10:].strip().split(" ", 1)
-            logging.debug(command)
-            logging.debug(value)
-        except ValueError:
-            logging.exception("Number given couldn't be converted to a float")
-        else:
-            if command == "DEACTIVATE":
-                mtcommand_instance.deactivate_mt()
-                self.msg = "Interlock deactivated"
-            elif command == "ACTIVATE":
-                mtcommand_instance.activate_mt()
-                self.msg = "Interlock activated"
-            elif command == "SET":
-                mtcommand_instance.set_mt_elevation(float(value))
-                self.msg = f"Interlock elevation set to {value}"
+        command = self.user_command[10:]
+
+        if "DEACTIVATE" in command:
+            self.mtcommand_client.deactivate_mt()
+            self.msg = "Interlock deactivated"
+        elif "ACTIVATE" in command:
+            self.mtcommand_client.activate_mt()
+            self.msg = "Interlock activated"
+        elif "SET" in command:
+            try:
+                just_command, value = command.strip().split(" ", 1)
+                logging.debug(
+                    f"Command given: {just_command}. Value given: {value}")
+            except ValueError:
+                logging.exception("Number given couldn't be converted to a float")
+                self.msg = "Number given after 'SET' couldn't be converted to" \
+                           " a float or none provided"
             else:
-                self.msg = 'message type not recognized. Correct types for ' \
-                           'interlock are: "ACTIVATE", "DEACTIVATE", "SET"'
+                self.mtcommand_client.set_mt_elevation(float(value))
+                self.msg = f"Interlock elevation set to {value}"
+        else:
+            self.msg = 'message type not recognized. Correct types for ' \
+                       'interlock are: "ACTIVATE", "DEACTIVATE", "SET"'
 
     # # # # # Hexapod parsing section # # # # #
     def hexapod_control(self):
         self.user_command = self.user_command[8:]
 
         if "GETABS" in self.user_command:
-            positions = multicast_instance.get_hexapod_positions()
+            positions = self.mcast_receiver.get_hexapod_positions()
             message = f"\n hxpd_xlin: {positions[0]}," \
                       f"\n hxpd_ylin: {positions[1]}," \
                       f"\n hxpd_zlin: {positions[2]}," \
@@ -296,7 +295,7 @@ class UDPCommandParser:
 
             else:
                 if "SETABS" in self.user_command:
-                    mtcommand_instance.preset_abs_hxpd(new_val[0], new_val[1],
+                    self.mtcommand_client.preset_abs_hxpd(new_val[0], new_val[1],
                                                        new_val[2], new_val[3],
                                                        new_val[4], new_val[5],
                                                        new_val[6], new_val[7])
@@ -308,14 +307,14 @@ class UDPCommandParser:
                                f" zrot: {new_val[6]}, v_rot: {new_val[7]}"
 
                 elif "SETREL" in self.user_command:
-                    positions = multicast_instance.get_hexapod_positions()
+                    positions = self.mcast_receiver.get_hexapod_positions()
                     new_xlin = positions[0] + new_val[0]
                     new_ylin = positions[1] + new_val[1]
                     new_zlin = positions[2] + new_val[2]
                     new_xrot = positions[4] + new_val[4]
                     new_yrot = positions[5] + new_val[5]
                     new_zrot = positions[6] + new_val[6]
-                    mtcommand_instance.preset_abs_hxpd(new_xlin, new_ylin,
+                    self.mtcommand_client.preset_abs_hxpd(new_xlin, new_ylin,
                                                        new_zlin, new_val[3],
                                                        new_xrot, new_yrot,
                                                        new_zrot, new_val[7])
@@ -326,15 +325,19 @@ class UDPCommandParser:
                                f" zrot: {new_val[6]}, v_rot: {new_val[7]}"
 
         elif "DEACTIVATE" in self.user_command:
-            mtcommand_instance.deactivate_hxpd()
+            self.mtcommand_client.deactivate_hxpd()
         elif "ACTIVATE" in self.user_command:
-            mtcommand_instance.activate_hxpd()
+            self.mtcommand_client.activate_hxpd()
         elif "STOP" in self.user_command:
-            mtcommand_instance.stop_hxpd()
-        elif "INTERLOCK" in self.user_command():
-            mtcommand_instance.interlock_hxpd()
+            self.mtcommand_client.stop_hxpd()
+        elif "INTERLOCK" in self.user_command:
+            self.mtcommand_client.interlock_hxpd()
         elif "ERROR" in self.user_command:
-            mtcommand_instance.acknowledge_error_on_hxpd()
+            self.mtcommand_client.acknowledge_error_on_hxpd()
+        elif "?" in self.user_command:
+            self.msg = 'Usable types for hexapod are: "GETABS", "SETABS", ' \
+                       '"SETREL", "ACTIVATE", "DEACTIVATE", ' \
+                       '"STOP", "INTERLOCK", "ERROR"'
 
         else:
             self.msg = 'message type not recognized. Correct types for ' \
@@ -347,21 +350,21 @@ class UDPCommandParser:
         self.user_command = self.user_command[4:]
 
         if "IGNORE" in self.user_command:
-            mtcommand_instance.ignore_asf()
+            self.mtcommand_client.ignore_asf()
         elif "DEACTIVATE" in self.user_command:
-            mtcommand_instance.deactivate_asf()
+            self.mtcommand_client.deactivate_asf()
         elif "REST" in self.user_command:
-            mtcommand_instance.rest_pos_asf()
+            self.mtcommand_client.rest_pos_asf()
         elif "ERROR" in self.user_command:
-            mtcommand_instance.acknowledge_error_on_asf()
+            self.mtcommand_client.acknowledge_error_on_asf()
         elif "STOP" in self.user_command:
-            mtcommand_instance.stop_asf()
+            self.mtcommand_client.stop_asf()
         elif "PRESET" in self.user_command:
-            mtcommand_instance.preset_pos_asf()
+            self.mtcommand_client.preset_pos_asf()
         elif "AUTO" in self.user_command:
-            mtcommand_instance.set_automatic_asf()
+            self.mtcommand_client.set_automatic_asf()
         elif "OFFSET" in self.user_command:
-            mtcommand_instance.set_offset_asf()
+            self.mtcommand_client.set_offset_asf()
         else:
             self.msg = 'message type not recognized. Correct types for asf' \
                        'are: "IGNORE", "DEACTIVATE", "REST", "ERROR", "STOP",' \
@@ -372,20 +375,20 @@ class UDPCommandParser:
         self.user_command = self.user_command[6:]
 
         if "GETABS" in self.user_command:
-            positions = multicast_instance.get_polar_position()
+            positions = self.mcast_receiver.get_polar_position()
             message = f"\n P_soll[deg]: {positions[0]},"
             self.msg = message
         elif "DEACTIVATE" in self.user_command:
-            mtcommand_instance.deactivate_polar()
+            self.mtcommand_client.deactivate_polar()
 
         elif "ACTIVATE" in self.user_command:
-            mtcommand_instance.activate_polar()
+            self.mtcommand_client.activate_polar()
 
         elif "STOP" in self.user_command:
-            mtcommand_instance.stop_polar()
+            self.mtcommand_client.stop_polar()
 
         elif "ERROR" in self.user_command:
-            mtcommand_instance.acknowledge_error_on_polar()
+            self.mtcommand_client.acknowledge_error_on_polar()
 
         elif "SETABS" in self.user_command:
             # TODO: Add test for right format from user on numbers. Very hacky currently
@@ -393,14 +396,14 @@ class UDPCommandParser:
             p_soll, v_cmd = self.user_command[10:].strip().split(" ", 1)
             logging.debug(p_soll)
             logging.debug(v_cmd)
-            mtcommand_instance.preset_abs_polar(p_soll, v_cmd)
+            self.mtcommand_client.preset_abs_polar(p_soll, v_cmd)
 
         elif "SETREL" in self.user_command:
             self.user_command = self.user_command[6:]
             p_soll, v_cmd = self.user_command[10:].strip().split(" ", 1)
             logging.debug(p_soll)
             logging.debug(v_cmd)
-            mtcommand_instance.preset_rel_polar(p_soll, v_cmd)
+            self.mtcommand_client.preset_rel_polar(p_soll, v_cmd)
 
         else:
             self.msg = 'message type not recognized. Correct types for polar' \
@@ -409,8 +412,25 @@ class UDPCommandParser:
 
     # # # # # Reset Connections # # # # #
     def reset_connections(self):
-        self.msg = "Resetting connections. Please wait 5 seconds"
-        srclient_instance.close_sr_client()
+        logging.debug("User initiated connection reset to server")
+        logging.debug(f"{threading.enumerate()}")
+        #
+        # self.msg = "Connections reset"
+        #
+        # endsocketthread = threading.Thread(target=srclient.srclient.end_connection)
+        # endsocketthread.start()
+        # endsocketthread.join()
+        # srclient.thread.join()
+        #
+        # if srclient.srclient.sock.fileno() == -1:
+        #     logging.debug("Connection severed")
+        # else:
+        #     logging.error("Socket closed but fileno did not return -1")
+        #
+        # # srclient.srclient.make_connection()
+        #
+        # # srclient.thread.join()
+        # logging.debug("Connection reestablished")
 
 
     # def multicast_variable(self):
@@ -426,7 +446,7 @@ class UDPCommandParser:
     def return_message(self):
         return self.msg
 
-
+# TODO This class is not functioning yet after restrucutre. FIX!
 class MulticastReceiver:
     """
     This class handles the receiving of the output data from the MT Subreflector
@@ -536,9 +556,9 @@ class MulticastReceiver:
         # local to prevent race condition
         lastmessage = self.last_msg
         hxpd_header = "status-data-hexapod-drive"
-        hxpd_xlin = lastmessage[hxpd_header]["current_position_x_linear_[mm]"]
-        hxpd_ylin = lastmessage[hxpd_header]["current_position_y_linear_[mm]"]
-        hxpd_zlin = lastmessage[hxpd_header]["current_position_z_linear_[mm]"]
+        hxpd_xlin = lastmessage[hxpd_header]["current_position_x_linear[mm]"]
+        hxpd_ylin = lastmessage[hxpd_header]["current_position_y_linear[mm]"]
+        hxpd_zlin = lastmessage[hxpd_header]["current_position_z_linear[mm]"]
         hxpd_xrot = lastmessage[hxpd_header]["current_position_x_rotation[deg]"]
         hxpd_yrot = lastmessage[hxpd_header]["current_position_y_rotation[deg]"]
         hxpd_zrot = lastmessage[hxpd_header]["current_position_z_rotation[deg]"]
@@ -550,29 +570,11 @@ class MulticastReceiver:
         self.find_diferences()
 
 
-class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
-    pass
-
-
 if __name__ == "__main__":
     logging.basicConfig(filename='debug/subreflector_program_debug.log',
                         filemode='w', level=logging.DEBUG,
                         format='%(asctime)s - %(levelname)s - %(module)s '
                                '- %(funcName)s- %(message)s',
                         datefmt='%d-%b-%y %H:%M:%S')
-
-    # Constants
-    UDPTELNET_PORT = ***REMOVED***
-    SDH_PORT = 1602  # Port where sdh output can be reached
-    SR_MULTI = ***REMOVED***  # Port where subreflector_client.py outputs JSON
-    LOCAL_ADDRESS = ''  # local IP
-    MULTICAST_GROUP = ***REMOVED***  # Multicast IP address
-    dict_ = {}  # Temporary, will get to this fix later
-
-    # Instanciate classes here so they're in global
-    multicast_instance = MulticastReceiver()  # For recieving data from SR
-    mtcommand_instance = mtcommand_module.MTCommand()  # Sending commands to SR
-    srclient_instance = StartupSubreflectorClient()  # Module listens on port 8k
-    udpserver_instance = UDPServer()  # Communication to user for commands
 
     start_connections()
