@@ -3,7 +3,7 @@ import time
 
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
     destination_address = ('', ***REMOVED***)
-    sock.settimeout(10)
+    sock.settimeout(4)
 
     while True:
         time.sleep(0.001)
