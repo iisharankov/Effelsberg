@@ -5,20 +5,21 @@ import json
 import socket
 import struct
 import logging
+import threading
 from astropy.time import Time
 
+SR_ADDR = ***REMOVED***
+LOCAL_ADDR = '***REMOVED***'
+SR_PORT = ***REMOVED***
+MULTICAST = (***REMOVED***, ***REMOVED***)
 
 class SubreflectorClient:
 
     def __init__(self, use_test_server=False):
         self.sock = None
-        self.SR_ADDR = ***REMOVED***
-        self.LOCAL_ADDR = '***REMOVED***'
-        self.SR_PORT = ***REMOVED***
-        self.MULTICAST = (***REMOVED***, ***REMOVED***)
+        self.lock = threading.Lock()
         self.chosen_server = self.use_test_server(use_test_server)
         self.connection_flag = False
-
 
     def main(self):
         self.activate_multicasting()
@@ -27,7 +28,8 @@ class SubreflectorClient:
     def activate_multicasting(self):
         # Sets up multicast socket for later use
         self.multicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.multicast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
+        self.multicast_sock.setsockopt(socket.IPPROTO_IP,
+                                       socket.IP_MULTICAST_TTL, 1)
 
     def use_test_server(self, test_server):
         """
@@ -41,21 +43,28 @@ class SubreflectorClient:
             msg = "Connected to local subreflector in MockSubreflector.py"
             print(msg)
             logging.debug(msg)
-            return self.LOCAL_ADDR, self.SR_PORT
+            return LOCAL_ADDR, SR_PORT
+
         else:
-            msg = f"Connected to mt_subreflector. IP: {self.SR_ADDR} - " \
-                  f"Port: {self.SR_PORT}"
+            msg = f"Connected to mt_subreflector. IP: {SR_ADDR} - " \
+                  f"Port: {SR_PORT}"
             print(msg)
             logging.debug(msg)
-            return self.SR_ADDR, self.SR_PORT
+            return SR_ADDR, SR_PORT
 
     def make_connection(self):
         """
+        Creates a TCP socket connection with the given server. This is done in
+        a context manager to further guarantee no leakage of resources. Due
+        to the nature of the context manager, the receive_data method is run
+        in a while loop in this method, otherwise the socket instance variable
+        in not accessible in other methods
 
-        :return:
+        :return: N/A
         """
+        # receive
 
-        # Creates socket that recvs from subreflector
+        # Creates socket that receives from subreflector
         logging.debug("Creating TCP socket")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.sock:
             logging.debug("TCP socket created. Connecting to specified address")
@@ -68,18 +77,34 @@ class SubreflectorClient:
                               f"port {self.sock.getsockname()[1]}")
                 self.sock.settimeout(8)
                 logging.debug(f"socket timeout set to {self.sock.gettimeout()}")
-                self.recieve_data(self.sock)
+                self.receive_data(self.sock)
             except ConnectionError as E:
                 logging.exception("Error connecting to server. May not be found")
                 print(f"Could not connect to the Subreflector: {E}")
 
-    def recieve_data(self, sock):
-        full_msg = b''
+    def receive_data(self, sock):
+        """
+        Method that runs indefinitly checking for data from the given server.
+        It then finds a full message inside the data stream, and passes that
+        along to other methods to correctly analyze the data. This date is
+        then broadcasted to a multicast server at the end of this method.
+
+
+        :param sock: self.sock from the make_connection method. Passed
+        into here as it cannot be accessed as an instance variable if
+        it's within a context manager.
+        :return:
+        """
         sock.send(b"\n")  # Initial message is needed to start stream
         count = 0
         while 1:
+            time.sleep(1)
             try:
-                data = sock.recv(***REMOVED***)
+
+                # Due to the nature of TCP/IP connections, and the properties
+                # of the subreflector, it is safer to receive two messages and
+                # find a full one inside between the flags. Explained in docs
+                data = sock.recv((1760*2))
 
             except socket.timeout:
                 msg = f"Socket timed out after {sock.gettimeout()} seconds"
@@ -87,93 +112,74 @@ class SubreflectorClient:
                 print(msg, " Trying again.")
 
             else:
+                # Finds a start flag and cuts everything before it
+                startindex = (data.find(b"\x1a\xcf\xfc\x1d"))
+                data = data[startindex:]
 
-                if (full_msg == b'' and len(data) == 736) or \
-                        (len(full_msg) == ***REMOVED*** and len(data) == ***REMOVED***):
-                    pass
-                elif (full_msg == b'' and len(data) == ***REMOVED***) or \
-                        (len(full_msg) == ***REMOVED*** and len(data) == 736):
-                    full_msg += bytearray(data)
+                # Finds the first end flag afterwards and does the same
+                endindex = (data.find(b"\xd1\xcf\xfc\xa1"))
+                full_msg = data[:endindex + 4]  # +4 as endindex is start string
 
-
-                if len(full_msg) > 2000:
-                    msg = "The message did not register the correct length, " \
-                          "messages may have been appended incorrectly."
+                if len(full_msg) != 1760:
+                    msg = "The message didn't register the correct length, " \
+                          "data may have been added/lost, changing the length."
                     logging.exception(msg)
                     raise ValueError(msg)
 
                 # Expected length of the message
                 elif len(full_msg) == 1760:
-                    time.sleep(1)
+
                     # Optional pickling of the message for storage
                     # pickle.dump(full_msg, open("Subreflector_Output_Nov-4.p", 'ab'))
+
+                    # TODO: Next line just here for testing reasons
                     count += 1
-                    status_message = self.package_msg(full_msg)
-                    full_msg = b''
-                    # TODO: Just here to know it's running normally when testing
                     print(f"\rmessage sent x{count}", end='')
-                    self.multicast_sock.sendto(status_message, self.MULTICAST)
+
+                    status_message = self.package_msg(full_msg)
+                    self.multicast_sock.sendto(status_message, MULTICAST)
 
             finally:
-                if self.connection_flag:
-                    self.connection_flag = False  # resets the flag
-                    break
+                with self.lock:
+                     if self.connection_flag:
+                        self.connection_flag = False  # resets the flag
+                        logging.debug("Closing socket")
+                        break
 
     def end_connection(self):
-        self.connection_flag = True
+        with self.lock:
+            self.connection_flag = True
 
-    def package_msg(self, binary_string):
+        logging.debug("flag to close socket triggered")
+
+    def package_msg(self, bytes_string):
         """
-        Take given binary string and parses it to be made into a JSON, then
+        Take given bytes string and parses it to be made into a JSON, then
         returns the encoded JSON string
 
-        :param binary_string: binary string
+        :param bytes_string: binary string
             input string from subreflector, recieved from socket
         :return: JSON string that is is encoded into binary for future socket
         """
-        status_message = self.decompose_to_json(binary_string)
-        # print(status_message["status-data-active-surface"])
+        status_message = self.decompose_to_json(bytes_string)
 
         # Dumps JSON dict to string and encodes to bytes to send over socket
         status_string = json.dumps(status_message, indent=2).encode('utf-8')
         return status_string
 
-    def decode_struct(self, data):
-        header = struct.unpack("=LiiH", data[:14])
-        il = struct.unpack("=15BHB2H2H2f", data[14:48])
-        power = struct.unpack("=5B", data[48:53])
-        polar = struct.unpack("=2H2B27B25B8fH4f9BHBH6B4f9BHBH6B2H2f2H2f",
-                              data[53:241])
-        hxpd = struct.unpack("=H6f2b22b2iH8f3B27BB25B8f3B27BB25B8f3B27BB"
-                             "25B8f3B27BB25B8f3B27BB25B8f3B27BB25B4H4f2H"
-                             "4f2H2f", data[241:885])
-        focus = struct.unpack("=H5BH3f8f3B27BB25B8f3B27BB25B2H2f2H2f",
-                              data[885:1106])
-        asf = struct.unpack("=dI5B96B96h2H2H6Bh3f2H11h2H2f2H2f",
-                            data[1106:1489])
-        bdkl = struct.unpack("=2BHHB10B10B2H2f2H2f", data[1489:1540])
-        spkl = struct.unpack("=BH5BH2B27B2B3f2B27B2B3f2H2H2f",
-                             data[1540:1652])
-        temp = struct.unpack("=10f10B", data[1652:1702])
-        foctime = struct.unpack("=diH2B3d2H2f", data[1702:1754])
-        last = struct.unpack("=2BI", data[1754:1760])
-
-        return header, il, power, polar, hxpd, focus, \
-               asf, bdkl, spkl, temp, foctime, last
-
-    def decompose_to_json(self, message):
+    def decompose_to_json(self, bytes_string):
         """
-        Receives a binary string and decodes it with struct, then parses all the
-        values into a JSON dict
+        Receives a bytes string and decodes it with struct, then parses
+        all the values into a JSON dict
 
-        :param message: binary string
-            input string from subreflector, recieved from socket
+        :param bytes_string: binary string
+            input string from subreflector, received from socket
         :return: JSON dict
         """
 
         try:
             header, il, power, polar, hxpd, focus, asf, bdkl, spkl, temp, \
-            foctime, last = self.decode_struct(message)
+            foctime, last = self.decode_struct(bytes_string)
         except Exception as e:
             msg = f"There was an error deconstructing the message: {e}"
             logging.exception(msg)
@@ -1387,6 +1393,35 @@ class SubreflectorClient:
 
             return status_message
 
+    @staticmethod
+    def decode_struct(data):
+        """
+        Decodes, organizes, and returns a given bytes string to it's respective
+        pieces.
+        :param data: bytes string of len 1760.
+        :return: tuple of tuples - Each with int/float entries
+        """
+        header = struct.unpack("=LiiH", data[:14])
+        il = struct.unpack("=15BHB2H2H2f", data[14:48])
+        power = struct.unpack("=5B", data[48:53])
+        polar = struct.unpack("=2H2B27B25B8fH4f9BHBH6B4f9BHBH6B2H2f2H2f",
+                              data[53:241])
+        hxpd = struct.unpack("=H6f2b22b2iH8f3B27BB25B8f3B27BB25B8f3B27BB"
+                             "25B8f3B27BB25B8f3B27BB25B8f3B27BB25B4H4f2H"
+                             "4f2H2f", data[241:885])
+        focus = struct.unpack("=H5BH3f8f3B27BB25B8f3B27BB25B2H2f2H2f",
+                              data[885:1106])
+        asf = struct.unpack("=dI5B96B96h2H2H6Bh3f2H11h2H2f2H2f",
+                            data[1106:1489])
+        bdkl = struct.unpack("=2BHHB10B10B2H2f2H2f", data[1489:1540])
+        spkl = struct.unpack("=BH5BH2B27B2B3f2B27B2B3f2H2H2f",
+                             data[1540:1652])
+        temp = struct.unpack("=10f10B", data[1652:1702])
+        foctime = struct.unpack("=diH2B3d2H2f", data[1702:1754])
+        last = struct.unpack("=2BI", data[1754:1760])
+
+        return header, il, power, polar, hxpd, focus, \
+               asf, bdkl, spkl, temp, foctime, last
 
 if __name__ == '__main__':
     logging.basicConfig(
@@ -1394,5 +1429,4 @@ if __name__ == '__main__':
         level=logging.DEBUG, format='%(asctime)s - %(levelname)s- %(message)s',
         datefmt='%d-%b-%y %H:%M:%S')
 
-    client_instance = SubreflectorClient(use_test_server=True)
-    client_instance.main()
+    SubreflectorClient(use_test_server=True).main()
