@@ -15,16 +15,21 @@ class MTCommand:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((TCP_IP, TCP_PORT))
         self.structure = None
+        self.msg = None
         self.startflag = 0x1DFCCF1A
         self.endflag = 0xA1FCCFD1
-        self.seconds = 10001
+        self.seconds = 10001  # initial value, overwritten by structure methods
 
     def send_command(self, command):
         # Sends the given command though the socket to the Subreflector
-        logging.debug(f"Sending packaged_ctype to Subreflector at "
-                      f"address: {self.sock.getsockname()[0]}, "
-                      f"port: {self.sock.getsockname()[1]}.")
-        self.sock.send(command)
+        try:
+            logging.debug(f"Sending packaged_ctype to Subreflector at "
+                          f"address: {self.sock.getsockname()[0]}, "
+                          f"port: {self.sock.getsockname()[1]}.")
+            self.sock.send(command)
+        except ConnectionError or BrokenPipeError as E:
+            self.msg = f"There was a socket error: {E}"
+
 
     @staticmethod
     def pack(ctype_instance):
@@ -127,27 +132,25 @@ class MTCommand:
                         ("command", ctypes.c_int16),
                         ("fashion", ctypes.c_int16),
                         ("mode_lin", ctypes.c_int16),
-                        ("anzahl_lin", ctypes.c_int16),
+                        ("anzahl_lin", ctypes.c_uint16),
                         ("phase_lin", ctypes.c_double),
                         ("p_xlin", ctypes.c_double),
                         ("p_ylin", ctypes.c_double),
                         ("p_zlin", ctypes.c_double),
                         ("v_lin", ctypes.c_double),
-                        ("mode_rot", ctypes.c_int16)
-                        ("anzahl_rot", ctypes.c_int16),
+                        ("mode_rot", ctypes.c_int16),
+                        ("anzahl_rot", ctypes.c_uint16),
                         ("phase_rot", ctypes.c_double),
                         ("p_xrot", ctypes.c_double),
                         ("p_yrot", ctypes.c_double),
                         ("p_zrot", ctypes.c_double),
                         ("v_rot", ctypes.c_double),
-                        ("elevation", ctypes.c_double),
-                        ("reserved", ctypes.c_double),  # real64
                         ("end_flag", ctypes.c_uint32)]  # DWORD
 
         size_of_struct = ctypes.sizeof(InterlockStructure())
         print(size_of_struct)  # To see the size in output, as it changes often
         cmd_hxpd, fashion, mode_lin, anzahl_lin, phase_lin, \
-            p_xlin, p_ylin, p_zlin, v_lin, mode_rot, anzahl_rot, phase_rot,
+            p_xlin, p_ylin, p_zlin, v_lin, mode_rot, anzahl_rot, phase_rot, \
             p_xrot, p_yrot, p_zrot, v_rot, = command
 
         self.structure = InterlockStructure(
@@ -249,51 +252,68 @@ class MTCommand:
         self.encapsulate_command("interlock", data)
 
     # # # # # 4.3 Active Surface command # # # # #
+
+
+    def ignore_asf(self):
+        cmd_as = 100
+        mode = 0
+        offset_dr_nr = 1  # 1-96 apparently
+        offset_active = 0
+        data = (cmd_as, mode, offset_dr_nr, offset_active,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+        self.encapsulate_command("asf", data)
+
     def deactivate_asf(self):
         cmd_as = 100
         mode = 1
         offset_dr_nr = 1  # 1-96 apparently
         offset_active = 0
-        offset_value1 = 0
-        offset_value2 = 0
-        offset_value3 = 0
-        offset_value4 = 0
-        offset_value5 = 0
-        offset_value6 = 0
-        offset_value7 = 0
-        offset_value8 = 0
-        offset_value9 = 0
-        offset_value10 = 0
-        offset_value11 = 0
-
-        data = (cmd_as, mode, offset_dr_nr, offset_active, offset_value1,
-                offset_value2, offset_value3, offset_value4, offset_value5,
-                offset_value6, offset_value7, offset_value8, offset_value9,
-                offset_value10, offset_value11)
+        data = (cmd_as, mode, offset_dr_nr, offset_active,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
         self.encapsulate_command("asf", data)
+
 
     def rest_pos_asf(self):
         cmd_as = 100
         mode = 6
         offset_dr_nr = 1  # 1-96 apparently
         offset_active = 0
-        offset_value1 = 0
-        offset_value2 = 0
-        offset_value3 = 0
-        offset_value4 = 0
-        offset_value5 = 0
-        offset_value6 = 0
-        offset_value7 = 0
-        offset_value8 = 0
-        offset_value9 = 0
-        offset_value10 = 0
-        offset_value11 = 0
+        data = (cmd_as, mode, offset_dr_nr, offset_active,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
-        data = (cmd_as, mode, offset_dr_nr, offset_active, offset_value1,
-                offset_value2, offset_value3, offset_value4, offset_value5,
-                offset_value6, offset_value7, offset_value8, offset_value9,
-                offset_value10, offset_value11)
+        self.encapsulate_command("asf", data)
+
+    def stop_asf(self):
+        cmd_as = 100
+        mode = 7
+        offset_dr_nr = 1  # 1-96 apparently
+        offset_active = 0
+        data = (cmd_as, mode, offset_dr_nr, offset_active,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+        self.encapsulate_command("asf", data)
+
+    def acknowledge_error_on_asf(self):
+        cmd_as = 100
+        mode = 15
+        offset_dr_nr = 1  # 1-96 apparently
+        offset_active = 0
+
+        data = (cmd_as, mode, offset_dr_nr, offset_active,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+        self.encapsulate_command("asf", data)
+
+    def preset_pos_asf(self):
+        cmd_as = 100
+        mode = 23
+        offset_dr_nr = 1  # 1-96 apparently
+        offset_active = 0
+
+        data = (cmd_as, mode, offset_dr_nr, offset_active,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
         self.encapsulate_command("asf", data)
 
@@ -302,31 +322,59 @@ class MTCommand:
         mode = 42
         offset_dr_nr = 1  # 1-96 apparently
         offset_active = 0
-        offset_value1 = 0
-        offset_value2 = 0
-        offset_value3 = 0
-        offset_value4 = 0
-        offset_value5 = 0
-        offset_value6 = 0
-        offset_value7 = 0
-        offset_value8 = 0
-        offset_value9 = 0
-        offset_value10 = 0
-        offset_value11 = 0
+        data = (cmd_as, mode, offset_dr_nr, offset_active,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
-        data = (cmd_as, mode, offset_dr_nr, offset_active, offset_value1,
-                offset_value2, offset_value3, offset_value4, offset_value5,
-                offset_value6, offset_value7, offset_value8, offset_value9,
-                offset_value10, offset_value11)
+        self.encapsulate_command("asf", data)
+
+    def set_offset_asf(self):
+        cmd_as = 100
+        mode = 44
+        offset_dr_nr = 1  # 1-96 apparently
+        offset_active = 0
+        data = (cmd_as, mode, offset_dr_nr, offset_active,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
         self.encapsulate_command("asf", data)
 
 
     # # # # # 4.4 Subreflector positioning instruction set # # # # #
 
+
+    def deactivate_hxpd(self):
+        cmd_hxpd = 101
+        fashion = 1
+        mode_lin = 0
+        p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
+        mode_rot = 0
+        p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
+
+        data = (cmd_hxpd, fashion,
+                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
+
+        self.encapsulate_command("hxpd", data)
+
     def activate_hxpd(self):
         cmd_hxpd = 101
         fashion = 2
+        mode_lin = 0
+        p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
+        mode_rot = 0
+        p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
+
+        data = (cmd_hxpd, fashion,
+                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
+
+        self.encapsulate_command("hxpd", data)
+
+
+    def stop_hxpd(self):
+        cmd_hxpd = 101
+        fashion = 7
         mode_lin = 0
         p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
         mode_rot = 0
@@ -354,35 +402,7 @@ class MTCommand:
 
         self.encapsulate_command("hxpd", data)
 
-    def deactivate_hxpd(self):
-        cmd_hxpd = 101
-        fashion = 1
-        mode_lin = 0
-        p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
-        mode_rot = 0
-        p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
-        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
-        data = (cmd_hxpd, fashion,
-                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
-
-        self.encapsulate_command("hxpd", data)
-
-    def stop_hxpd(self):
-        cmd_hxpd = 101
-        fashion = 7
-        mode_lin = 0
-        p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
-        mode_rot = 0
-        p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
-        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
-
-        data = (cmd_hxpd, fashion,
-                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
-
-        self.encapsulate_command("hxpd", data)
 
     def acknowledge_error_on_hxpd(self):
         cmd_hxpd = 101
@@ -417,7 +437,7 @@ class MTCommand:
         cmd_hxpd = 101
         fashion = 2
         mode_lin = 3
-        mode_rot = 0
+        mode_rot = 3
         anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
@@ -523,13 +543,3 @@ class MTCommand:
 
     def close(self):
         self.sock.close()
-
-# Old way to pack/unpack to bytes that is commented out
-# def convert_bytes_to_structure(st, byte):
-#     # sizoef(st) == sizeof(byte)
-#     ctypes.memmove(ctypes.addressof(st), byte, ctypes.sizeof(st))
-#
-# def convert_struct_to_bytes(st):
-#     buffer = ctypes.create_string_buffer(ctypes.sizeof(st))
-#     ctypes.memmove(buffer, ctypes.addressof(st), ctypes.sizeof(st))
-#     return buffer.raw
