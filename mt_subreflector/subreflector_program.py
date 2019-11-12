@@ -9,8 +9,6 @@ import logging
 import threading
 import socketserver
 
-# import mt_subreflector.subreflector_client as subreflector_client_module
-# # import mt_subreflector.mtcommand as mtcommand_module
 import subreflector_client
 import mtcommand
 
@@ -20,6 +18,7 @@ SDH_PORT = 1602  # Port where sdh output can be reached
 SR_MULTI = ***REMOVED***  # Port where subreflector_client.py outputs JSON
 LOCAL_ADDRESS = ''  # local IP
 MULTICAST_GROUP = '***REMOVED***'  # Multicast IP address
+USETESTSERVER = True
 
 class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     """
@@ -30,12 +29,15 @@ class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
           background, and to hang until closed manually.
           """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, sr_client, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.udp_parser_client = UDPCommandParser()
+        self.sr_client = sr_client
+        self.udp_parser_client = UDPCommandParser(self.sr_client)
         logging.debug("Initialized ThreadingUDPServer")
+        self.helll = "hell"
+        # self.start_sr_client()
 
-def start_udp_server():
+def start_udp_server(sr_client):
     """
     This function sets up a non-daemon thread to initiate the
     ThreadingUDPserver in the background. This is the code
@@ -45,8 +47,7 @@ def start_udp_server():
     dest_address = (LOCAL_ADDRESS, UDPTELNET_PORT)
     logging.debug(f"ThreadingUDPServer accessing address:"
                   f" {dest_address[0]}, port: {dest_address[1]}")
-
-    server = ThreadingUDPServer(dest_address, MyUDPHandler, )
+    server = ThreadingUDPServer(sr_client, dest_address, MyUDPHandler, )
 
     logging.debug(f"Setting server to run forever")
     t = threading.Thread(target=server.serve_forever, name='UDPSERVER')
@@ -57,20 +58,31 @@ def start_udp_server():
 
 
 def start_connections():
-    # TODO: add doc string
+    """
+    Start connections does just that, it connects to two servers. One is in
+    subreflector_client.py which directly connects to the output of the
+    subreflector, which listens for the status message which gets multicast by
+    that module. The second is start_udp_server, which starts a server listening
+    to any input commands on the computer address and on PORT ***REMOVED***. Any input
+    is passed through the handle method in the MyUDPHandler class, which deals
+    with the command it was given via a parse class. start_udp_server is given
+    the instance of the sr_client to be able to control/reset the connection.
+    :return: N/a
+    """
     try:
 
-        logging.debug("Start UDP server instance")
-        start_udp_server()
-
+        # def start_sr_client(self):
         logging.debug("Start Startup_Subreflector_Client instance")
-        StartupSubreflectorClient().start_sr_client()
+        sr_client = StartupSubreflectorClient()
+        sr_client.start_sr_client()
+
+        logging.debug("Start UDP server instance")
+        start_udp_server(sr_client)
 
     except Exception as E:
-        logging.exception("An exception occured starting the threaded classes")
+        logging.exception("An exception occurred starting the threaded classes")
         raise E
-        # self.mcast_receiver = MulticastReceiver()  # For recieving data from SR
-        # self.mtcommand_client = mtcommand.MTCommand()  # Sending commands to SR
+
 
 class StartupSubreflectorClient:
     """
@@ -83,8 +95,8 @@ class StartupSubreflectorClient:
     def __init__(self):
         self.thread = None
         self.stop_threads = False
-        self.srclient = subreflector_client.SubreflectorClient(use_test_server=True)
-
+        # TODO: add user input for udp side if they want test server or real
+        self.srclient = subreflector_client.SubreflectorClient(USETESTSERVER)
 
     def start_sr_client(self):
         """
@@ -95,21 +107,20 @@ class StartupSubreflectorClient:
 
         try:
             logging.debug(f"Creating Thread")
-            self.thread = threading.Thread(target=self.run_sr_client, args=(),
-                                           name='sr_client_module')
-            self.thread.daemon = False  # Demonize thread
-            logging.debug(f"Threading set to {self.thread.daemon}. Starting Thread")
-            self.thread.start()
-            logging.debug("Thread started successfully")
-            print(f"THREAD ID: {self.thread.ident}")
+            self.thread = threading.Thread(
+                target=self.run_sr_client, args=(), name='sr_client_module')
 
-            # self.thread.join()
+            self.thread.daemon = False  # Demonize thread
+            logging.debug(f"Threading set to {self.thread.daemon}.")
+
+            self.thread.start()
+            logging.debug(f"Thread started successfully with "
+                          f"thread ID: {self.thread.ident}")
+
         except Exception as Er:
             print(Er)
             logging.exception("Exception starting Startup_Subreflector_Client")
 
-
-    # @staticmethod
     def run_sr_client(self):
         """
         creates instance of SubreflectorClient which starts listening to the
@@ -119,8 +130,16 @@ class StartupSubreflectorClient:
 
     def close_sr_client(self):
         logging.debug("User initiated Subreflector connection reset")
-        self.srclient.end_connection()
+        logging.debug(f"{threading.enumerate()}")
 
+        endsocketthread = threading.Thread(target=self.srclient.end_connection)
+        endsocketthread.start()
+        endsocketthread.join()
+        self.thread.join()
+
+        logging.debug(f"{threading.enumerate()}")
+
+        #
         time.sleep(2)
         logging.debug("Starting connection again")
         self.srclient.make_connection()
@@ -137,7 +156,6 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
     subreflector
     """
 
-
     def handle(self):
         logging.debug("Telnet: Message received from udp-telnet")
         # takes message, decodes to string and - all whitespace (by rejoining)
@@ -146,11 +164,12 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
         # telnet_msg = ''.join(self.request[0].decode('utf-8').split())
 
         logging.debug("Telnet: Sending message to CommandModule")
-        
-        self.server.udp_parser_client.check_obsprefix(telnet_msg)
+        self.server.udp_parser_client.probe_command(telnet_msg)
         msg = self.server.udp_parser_client.return_message()
-        
-        self.server.udp_parser_client.reset()
+
+        ###############################
+        # print(self.server.helll)
+
         logging.debug("Telnet: Message returned from CommandModule")
 
         logging.debug("Telnet: Setting up returnsocket")
@@ -166,106 +185,139 @@ class UDPCommandParser:
     TODO: Complete doc string
     """
 
-    def __init__(self):
+    def __init__(self, sr_client):
         """
-        :param command_message: str - message to parse
+        :param sr_client: object
+            instance of the StartupSubreflectorClient class
         """
-        self.user_command = None
-        self.msg = ''
-        self.obsprefix = None
-        self.commandprefix = None
+        # Proper PEP-8 form has these defined here
+        self.msg = ''  # Message given back to user
+        self.obsprefix = None  # prefix found while parsing user command
+        self.commandprefix = None  # prefix found while parsing user command
+
+        # These are instances that are used within methods
         self.mcast_receiver = MulticastReceiver()  # For recieving data from SR
         self.mtcommand_client = mtcommand.MTCommand()  # Sending commands to SR
+        self.sr_client = sr_client
 
+    # # # # # General parsing section # # # # #
+    def probe_command(self, usr_input):
 
-    def reset(self):
-        self.user_command = None  # command_message
         self.msg = ''
         self.obsprefix = None
         self.commandprefix = None
         logging.debug("Parser values reset")
 
-    # # # # # General parsing section # # # # #
-    def check_obsprefix(self, command):
-        self.user_command = command
-        print(threading.enumerate())
-        # Checks to make sure the command starts with correct string
-        if self.user_command.startswith("EFFELSBERG:"):
-            self.obsprefix = 'EFFELSBERG:'
-            self.user_command = self.user_command[11:]
-            self.check_mtsubreflector_called()
-        elif self.user_command.startswith("."):
-            self.mcast_receiver.get_new_status()
+        try:
+            telescope, subref, command, *subcommand = usr_input.split(":")
+            logging.debug(f"User gave values {telescope}:{subref}:"
+                          f"{command}:{subcommand}")
+
+            # Replace is done here individually instead of above as sometimes
+            # subcommand will have numbers separated by spaces from user
+            telescope = telescope.replace(" ", '')
+            subref = subref.replace(" ", '')
+            command = command.replace(" ", '')
+
+        except ValueError:
+            msg = 'Structure of message should be ' \
+                  '"EFFELSBERG:MTSUBREFLECTOR:[command]:[subcommand]".'
+            logging.info(msg)
+            self.msg = msg
         else:
-            logging.info("Given command had the incorrect prefix "
-                         "(was not 'EFFELSBERG:')")
-            self.msg = "Command should start with 'EFFELSBERG:'"
 
-    def check_mtsubreflector_called(self):
-        if self.user_command.startswith("MTSUBREFLECTOR:"):
-            self.obsprefix = 'MTSUBREFLECTOR:'
-            self.user_command = self.user_command[15:]
-            self.probe_command()
+            if telescope != "EFFELSBERG":
+                msg = 'Incorrect prefix (Command should start ' \
+                      'with "EFFELSBERG")'
+                logging.info(msg)
+                self.msg = msg
 
-        else:
-            logging.info("Given command had the incorrect prefix "
-                         "(was not 'MTSUBREFLECTOR:')")
-            self.msg = "Command should start with 'MTSUBREFLECTOR:'"
-            
-    def probe_command(self):
+            elif subref != "MTSUBREFLECTOR":
+                msg = 'Incorrect prefix (Second entry of command should be ' \
+                      '"MTSUBREFLECTOR")'
+                logging.info(msg)
+                self.msg = msg
 
-        # Checks what is in the string, and calls the correct method
+            elif not command:
+                logging.debug("User gave no command var input")
+                string = f'Command input must be given. The valid inputs are ' \
+                         f'"INTERLOCK", "HEXAPOD", "ASF", "POLAR", and ' \
+                         f'"OTHER".'
+                self.msg = string
 
-        if self.user_command.startswith('INTERLOCK:'):
-            self.interlock_control()
-        elif self.user_command.startswith('HEXAPOD:'):
-            self.hexapod_control()
-        elif self.user_command.startswith('ASF:'):
-            self.asf_control()
-        elif self.user_command.startswith('POLAR:'):
-            self.polar_control()
-        elif "RESETCONNECTION" in self.user_command:
-            self.reset_connections()
+            elif not subcommand:
+                msg = "No colon given after command entry. Add colon and " \
+                      "leave subcommand empty for possible options"
+                self.msg = msg
+                logging.debug(msg)
 
-        else:
-            string = f'{self.user_command} is not a valid input. The valid ' \
-                     f'inputs are "INTERLOCK", "HEXAPOD", "ASF", "POLAR", and' \
-                     f'"RESETCONNECTION'
-            self.msg = string
-
+            # Calls respective method for the given command var
+            elif command == 'INTERLOCK':
+                self.interlock_control(subcommand[0])
+            elif command == 'HEXAPOD':
+                self.hexapod_control(subcommand[0])
+            elif command == 'ASF':
+                self.asf_control(subcommand[0])
+            elif command == 'POLAR':
+                self.polar_control(subcommand[0])
+            elif command == "OTHER":
+                self.other_controls(subcommand[0])
+            elif command == "?":
+                self.msg = 'Usable types for interlock are: "ACTIVATE", ' \
+                           '"DEACTIVATE", "SET", "GET".'
+            else:
+                logging.debug("User gave unrecognized command input")
+                string = f'{command} is not a valid input. The valid inputs' \
+                         f' are "INTERLOCK", "HEXAPOD", "ASF", "POLAR", and ' \
+                         f'"OTHER".'
+                self.msg = string
 
     # # # # # Interlock parsing section # # # # #
-    def interlock_control(self):
-        # Splits user_command into command part, and if number, as 2nd val
-        command = self.user_command[10:]
+    def interlock_control(self, subcommand):
 
-        if "DEACTIVATE" in command:
+        if "DEACTIVATE" in subcommand:
+            logging.debug("interlock deactivate command given")
             self.mtcommand_client.deactivate_mt()
             self.msg = "Interlock deactivated"
-        elif "ACTIVATE" in command:
+        elif "ACTIVATE" in subcommand:
+            logging.debug("interlock activate command given")
             self.mtcommand_client.activate_mt()
             self.msg = "Interlock activated"
-        elif "SET" in command:
+        elif "SET" in subcommand:
+
+            # TODO lowest elevation is 8, should lower be set to that? ask.
             try:
-                just_command, value = command.strip().split(" ", 1)
+                just_command, value = subcommand.strip().split(" ", 1)
                 logging.debug(
                     f"Command given: {just_command}. Value given: {value}")
             except ValueError:
-                logging.exception("Number given couldn't be converted to a float")
+                logging.exception("Number given couldn't be converted to float")
                 self.msg = "Number given after 'SET' couldn't be converted to" \
                            " a float or none provided"
             else:
+                logging.debug("interlock set elevation command given")
                 self.mtcommand_client.set_mt_elevation(float(value))
-                self.msg = f"Interlock elevation set to {value}"
+                self.msg = f"Interlock elevation set to {value} degrees"
+        elif "GET" in subcommand:
+            logging.debug("Interlock get elevation command given")
+            elevation = self.mcast_receiver.get_elevation()
+            message = f"\n Interlock elevation: {elevation}"
+            self.msg = message
+
+        elif "?" in subcommand:
+            self.msg = 'Usable types for interlock are: "ACTIVATE", ' \
+                       '"DEACTIVATE", "SET", "GET".'
+
         else:
+            logging.debug("User command fit no interlock option")
             self.msg = 'message type not recognized. Correct types for ' \
-                       'interlock are: "ACTIVATE", "DEACTIVATE", "SET"'
+                       'interlock are: "ACTIVATE", "DEACTIVATE", "SET", "GET".'
 
     # # # # # Hexapod parsing section # # # # #
-    def hexapod_control(self):
-        self.user_command = self.user_command[8:]
+    def hexapod_control(self, subcommand):
 
-        if "GETABS" in self.user_command:
+        if "GETABS" in subcommand:
+            logging.debug("Hexapod get absolute position command given")
             positions = self.mcast_receiver.get_hexapod_positions()
             message = f"\n hxpd_xlin: {positions[0]}," \
                       f"\n hxpd_ylin: {positions[1]}," \
@@ -275,17 +327,18 @@ class UDPCommandParser:
                       f"\n hxpd_zrot: {positions[5]}"
             self.msg = message
 
-        elif "SETABS" in self.user_command or "SETREL" in self.user_command:
+        elif "SETABS" in subcommand or "SETREL" in subcommand:
             try:
-                # Remove "SETABS" from string and split into list at every space
-                values = self.user_command[6:].strip().split(" ")
+                logging.debug("Parsing command string to get entries to set to")
+                values = subcommand[6:].strip().split(" ")
                 new_val = [float(i) for i in values]  # change str to float
                 assert len(new_val) == 8  # Make sure there's exactly 8 entries
 
-            except AssertionError as E:
-                print(E)
-                logging.exception("Assertion error. Improper number in "
-                                  "parameters or wrong type")
+            except AssertionError:
+                msg = "Assertion error. Improper number in parameters or " \
+                      "wrong type. SETABS/SETREL takes 8 entries"
+                self.msg = msg
+                logging.exception(msg)
 
             except ValueError as E:
                 msg = "Error converting entries to floats. Other " \
@@ -294,19 +347,41 @@ class UDPCommandParser:
                 print(msg, E)
 
             else:
-                if "SETABS" in self.user_command:
-                    self.mtcommand_client.preset_abs_hxpd(new_val[0], new_val[1],
-                                                       new_val[2], new_val[3],
-                                                       new_val[4], new_val[5],
-                                                       new_val[6], new_val[7])
+                if "SETABS" in subcommand:
+                    logging.debug("Hexapod set absolute position command given")
 
-                    self.msg = "Set absolute values for hexapod to \n" \
-                               f" xlin: {new_val[0]}, ylin: {new_val[1]}," \
-                               f" zlin: {new_val[2]}, v_lin: {new_val[3]} \n" \
-                               f" xrot: {new_val[4]}, yrot: {new_val[5]}," \
-                               f" zrot: {new_val[6]}, v_rot: {new_val[7]}"
+                    try:
+                        assert (new_val[0] <= 225) and (new_val[0] >= -225)
+                        assert (new_val[1] <= 175) and (new_val[1] >= -175)
+                        assert (new_val[2] <= 45) and (new_val[2] >= -195)
+                        assert (new_val[4] <= 0.95) and (new_val[4] >= -0.95)
+                        assert (new_val[5] <= 0.95) and (new_val[5] >= -0.95)
+                        assert (new_val[6] <= 0.95) and (new_val[6] >= -0.95)
 
-                elif "SETREL" in self.user_command:
+                    except AssertionError as E:
+                        self.msg = \
+                            f"The absolute values given go over the " \
+                            f"permitted limits. Please input smaller " \
+                            f"absolute values, or use \"GETABS\" to read " \
+                            f"out current positions. Error: {E}"
+
+                        logging.exception("Relative inputs go over saftey "
+                                          "limits set on Hexapod. Aborted")
+
+                    else:
+                        self.mtcommand_client.preset_abs_hxpd(
+                            new_val[0], new_val[1], new_val[2], new_val[3],
+                            new_val[4], new_val[5], new_val[6], new_val[7])
+
+                        self.msg = \
+                            "Set absolute values for hexapod to \n" \
+                            f" xlin: {new_val[0]}, ylin: {new_val[1]}," \
+                            f" zlin: {new_val[2]}, v_lin: {new_val[3]} \n" \
+                            f" xrot: {new_val[4]}, yrot: {new_val[5]}," \
+                            f" zrot: {new_val[6]}, v_rot: {new_val[7]}"
+
+                elif "SETREL" in subcommand:
+                    logging.debug("Hexapod set relative position command given")
                     positions = self.mcast_receiver.get_hexapod_positions()
                     new_xlin = positions[0] + new_val[0]
                     new_ylin = positions[1] + new_val[1]
@@ -314,113 +389,168 @@ class UDPCommandParser:
                     new_xrot = positions[4] + new_val[4]
                     new_yrot = positions[5] + new_val[5]
                     new_zrot = positions[6] + new_val[6]
-                    self.mtcommand_client.preset_abs_hxpd(new_xlin, new_ylin,
-                                                       new_zlin, new_val[3],
-                                                       new_xrot, new_yrot,
-                                                       new_zrot, new_val[7])
-                    self.msg = "adding relative values for hexapod: \n" \
-                               f" xlin: {new_val[0]}, ylin: {new_val[1]}," \
-                               f" zlin: {new_val[2]}, v_lin: {new_val[3]} \n" \
-                               f" xrot: {new_val[4]}, yrot: {new_val[5]}," \
-                               f" zrot: {new_val[6]}, v_rot: {new_val[7]}"
 
-        elif "DEACTIVATE" in self.user_command:
+                    try:
+                        assert (new_xlin <= 225) and (new_xlin >= -225)
+                        assert (new_ylin <= 175) and (new_ylin >= -175)
+                        assert (new_zlin <= 45) and (new_zlin >= -195)
+                        assert (new_xrot <= 0.95) and (new_xrot >= -0.95)
+                        assert (new_yrot <= 0.95) and (new_yrot >= -0.95)
+                        assert (new_zrot <= 0.95) and (new_zrot >= -0.95)
+                    except AssertionError as E:
+                        msg = f"The relative values given added to the " \
+                              f"current hexapod values go over the permitted " \
+                              f"limits. Please input smaller relative " \
+                              f"values, or use \"GETABS\" to read out " \
+                              f"current positions. Error: {E}"
+                        self.msg = msg
+                        logging.exception("Relative inputs go over saftey "
+                                          "limits set on Hexapod. Aborted")
+                    else:
+                        self.mtcommand_client.preset_abs_hxpd(
+                            new_xlin, new_ylin, new_zlin, new_val[3],
+                            new_xrot, new_yrot, new_zrot, new_val[7])
+
+                        self.msg = \
+                            "adding relative values for hexapod: \n" \
+                            f" xlin: {new_val[0]}, ylin: {new_val[1]}," \
+                            f" zlin: {new_val[2]}, v_lin: {new_val[3]} \n" \
+                            f" xrot: {new_val[4]}, yrot: {new_val[5]}," \
+                            f" zrot: {new_val[6]}, v_rot: {new_val[7]}"
+
+        elif "DEACTIVATE" in subcommand:
+            logging.debug("Hexapod deactivation command given")
             self.mtcommand_client.deactivate_hxpd()
-        elif "ACTIVATE" in self.user_command:
+        elif "ACTIVATE" in subcommand:
+            logging.debug("Hexapod activation command given")
             self.mtcommand_client.activate_hxpd()
-        elif "STOP" in self.user_command:
+        elif "STOP" in subcommand:
+            logging.debug("Hexapod stop command given")
             self.mtcommand_client.stop_hxpd()
-        elif "INTERLOCK" in self.user_command:
+        elif "INTERLOCK" in subcommand:
+            logging.debug("Hexapod interlock command given")
             self.mtcommand_client.interlock_hxpd()
-        elif "ERROR" in self.user_command:
+        elif "ERROR" in subcommand:
+            logging.debug("Hexapod acknowledge error command given")
             self.mtcommand_client.acknowledge_error_on_hxpd()
-        elif "?" in self.user_command:
+        elif "?" in subcommand:
             self.msg = 'Usable types for hexapod are: "GETABS", "SETABS", ' \
                        '"SETREL", "ACTIVATE", "DEACTIVATE", ' \
-                       '"STOP", "INTERLOCK", "ERROR"'
+                       '"STOP", "INTERLOCK", "ERROR".'
 
         else:
+            logging.debug("User command fit no hexapod option")
             self.msg = 'message type not recognized. Correct types for ' \
                        'hexapod are: "GETABS", "SETABS", "SETREL", ' \
-                       '"ACTIVATE", "DEACTIVATE", "STOP", "INTERLOCK", "ERROR"'
+                       '"ACTIVATE", "DEACTIVATE", "STOP", "INTERLOCK", "ERROR".'
 
     # # # # # Polar parsing section # # # # #
 
-    def asf_control(self):
-        self.user_command = self.user_command[4:]
+    def asf_control(self, subcommand):
 
-        if "IGNORE" in self.user_command:
+        if "IGNORE" in subcommand:
+            logging.debug("ASF ignore command given")
             self.mtcommand_client.ignore_asf()
-        elif "DEACTIVATE" in self.user_command:
+        elif "DEACTIVATE" in subcommand:
+            logging.debug("ASF deactivate command given")
             self.mtcommand_client.deactivate_asf()
-        elif "REST" in self.user_command:
+        elif "REST" in subcommand:
+            logging.debug("ASF reset command given")
             self.mtcommand_client.rest_pos_asf()
-        elif "ERROR" in self.user_command:
+        elif "ERROR" in subcommand:
+            logging.debug("ASF acknowledge error command given")
             self.mtcommand_client.acknowledge_error_on_asf()
-        elif "STOP" in self.user_command:
+        elif "STOP" in subcommand:
+            logging.debug("ASF stop command given")
             self.mtcommand_client.stop_asf()
-        elif "PRESET" in self.user_command:
+        elif "PRESET" in subcommand:
+            logging.debug("ASF preset position command given")
             self.mtcommand_client.preset_pos_asf()
-        elif "AUTO" in self.user_command:
+        elif "AUTO" in subcommand:
+            logging.debug("ASF set automatic mode command given")
             self.mtcommand_client.set_automatic_asf()
-        elif "OFFSET" in self.user_command:
+        elif "OFFSET" in subcommand:
+            logging.debug("ASF set offset command given")
             self.mtcommand_client.set_offset_asf()
+        elif "?" in subcommand:
+            self.msg = 'Usable types for asf are: "IGNORE", "DEACTIVATE", ' \
+                       '"REST", "ERROR", "STOP", "PRESET", "AUTO", "OFFSET".'
         else:
+            logging.debug("User command fit no ASF option")
             self.msg = 'message type not recognized. Correct types for asf' \
                        'are: "IGNORE", "DEACTIVATE", "REST", "ERROR", "STOP",' \
-                       '"PRESET", "AUTO", "OFFSET"'
+                       '"PRESET", "AUTO", "OFFSET".'
 
     # # # # # Polar parsing section # # # # #
-    def polar_control(self):
-        self.user_command = self.user_command[6:]
+    def polar_control(self, subcommand):
 
-        if "GETABS" in self.user_command:
+        if "GETABS" in subcommand:
+            logging.debug("Polar get absolute positions command given")
             positions = self.mcast_receiver.get_polar_position()
             message = f"\n P_soll[deg]: {positions[0]},"
             self.msg = message
-        elif "DEACTIVATE" in self.user_command:
+        elif "DEACTIVATE" in subcommand:
+            logging.debug("Polar deactivate command given")
             self.mtcommand_client.deactivate_polar()
 
-        elif "ACTIVATE" in self.user_command:
+        elif "ACTIVATE" in subcommand:
+            logging.debug("Polar activate command given")
             self.mtcommand_client.activate_polar()
 
-        elif "STOP" in self.user_command:
+        elif "STOP" in subcommand:
+            logging.debug("Polar stop command given")
             self.mtcommand_client.stop_polar()
 
-        elif "ERROR" in self.user_command:
+        elif "ERROR" in subcommand:
+            logging.debug("Polar acknowledge error command given")
             self.mtcommand_client.acknowledge_error_on_polar()
 
-        elif "SETABS" in self.user_command:
-            # TODO: Add test for right format from user on numbers. Very hacky currently
-            self.user_command = self.user_command[6:]
-            p_soll, v_cmd = self.user_command[10:].strip().split(" ", 1)
+        elif "SETABS" in subcommand:  # TODO add logging here
+            # TODO: Add test for right format from user on numbers.
+            #   Very hacky currently
+            p_soll, v_cmd = subcommand[10:].strip().split(" ", 1)
             logging.debug(p_soll)
             logging.debug(v_cmd)
             self.mtcommand_client.preset_abs_polar(p_soll, v_cmd)
 
-        elif "SETREL" in self.user_command:
-            self.user_command = self.user_command[6:]
-            p_soll, v_cmd = self.user_command[10:].strip().split(" ", 1)
+        elif "SETREL" in subcommand:  # TODO add logging here
+            p_soll, v_cmd = subcommand[10:].strip().split(" ", 1)
             logging.debug(p_soll)
             logging.debug(v_cmd)
             self.mtcommand_client.preset_rel_polar(p_soll, v_cmd)
 
+        elif "?" in subcommand:
+            self.msg = 'Usable types for polar are: "GETABS", "SETABS", ' \
+                       '"SETREL", "ACTIVATE", "DEACTIVATE", "STOP", "ERROR".'
+
         else:
+            logging.debug("User command fit no polar option")
             self.msg = 'message type not recognized. Correct types for polar' \
                        'are: "GETABS", "SETABS", "SETREL", ' \
-                       '"ACTIVATE", "DEACTIVATE", "STOP", "ERROR"'
+                       '"ACTIVATE", "DEACTIVATE", "STOP", "ERROR".'
+
+    # # # # # Other Controls # # # # #
+    def other_controls(self, subcommand):
+
+        if "RESETCONNECTION" in subcommand:
+            logging.debug("Other command given to reset connection to server")
+            self.reset_connections()   #TODO Fix this threading nuance
+            self.msg = "Connection reset"
+
+        elif "?" in subcommand:
+            self.msg = 'Usable types for other are: "RESETCONNECTION".'
+
+        else:
+            logging.debug("User command fit no other option")
+            self.msg = 'message type not recognized. Correct types for other' \
+                       'are: "RESETCONNECTION".'
 
     # # # # # Reset Connections # # # # #
     def reset_connections(self):
         logging.debug("User initiated connection reset to server")
-        logging.debug(f"{threading.enumerate()}")
-        #
-        # self.msg = "Connections reset"
-        #
-        # endsocketthread = threading.Thread(target=srclient.srclient.end_connection)
-        # endsocketthread.start()
-        # endsocketthread.join()
-        # srclient.thread.join()
+        self.sr_client.close_sr_client()
+        self.msg = "Connections reset"
+
         #
         # if srclient.srclient.sock.fileno() == -1:
         #     logging.debug("Connection severed")
@@ -432,21 +562,11 @@ class UDPCommandParser:
         # # srclient.thread.join()
         # logging.debug("Connection reestablished")
 
-
-    # def multicast_variable(self):
-    #     # Finds the location of the variable in the multicast message
-    #     loc = self.multicastdata.find(self.user_command)
-    #     # takes a bit more on the right side than needed. This is trimmed next
-    #     multicast_var = (self.multicastdata[loc:loc + 50])
-    #
-    #     # Format to remove everything after comma, and remove a quote
-    #     multicast_var = multicast_var.replace('"', '').split(",", 1)[0]
-    #     self.set_message(multicast_var)
-
     def return_message(self):
         return self.msg
 
-# TODO This class is not functioning yet after restrucutre. FIX!
+
+# TODO This class is not functioning yet after restructure. FIX!
 class MulticastReceiver:
     """
     This class handles the receiving of the output data from the MT Subreflector
@@ -479,8 +599,11 @@ class MulticastReceiver:
         self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
     def recv_mcast_data(self):
-        multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 200)
-        self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
+        try:
+            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 200)
+            self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
+        except OSError or ConnectionError as E:
+            logging.exception(f"Error occurred receiving multicast data: {E}")
 
     def assert_static_data(self):
         # These should always be the same/True, only corruption or changes to
@@ -490,13 +613,13 @@ class MulticastReceiver:
             assert self.data["length-of-data-packet"] == 1760
             assert self.data["id=status-message(50)"] == 50
             assert self.data["end-flag"] == 0xA1FCCFD1
-        except AssertionError as e:
+        except AssertionError as E:
             logging.exception("Assertion of static data failed. Critical "
-                              "change must have been made to output string")
-            print(f"Assertion of expected static data failed: {e}")
+                              "change must have been found in output string")
+            print(f"Assertion of expected static data failed: {E}")
 
     def deepcopy_mcast_data(self):
-        # Deep copy to avoid any issues with comparisons
+        # Deep copy to avoid any issues with memory linkage
         self.last_msg = copy.deepcopy(self.data)
 
     def get_new_status(self):
@@ -527,34 +650,39 @@ class MulticastReceiver:
                    ]
 
         differences = []
+
+        # Runs through all the subfields in the dict and find value differences
         for item in headers:
             value = {k: self.data[item][k] for k, _ in
                      set(self.data[item].items())
-                     - set(self.last_msg[item].items())}
+                     - set(self.last_msg[item].items())}\
 
-            # value = {k: self.data[item] for k in set(self.data[item]) -
-            #          set(self.last_msg[item])}
-            # diff = set(self.last_msg[item].items()) \
-            #        - set(self.data[item].items())
-            # print(diff)
-            # value = diff
             if value:
+                # If value is different, append to differences
                 differences += (item, value)
 
         print(differences)
 
+    def get_elevation(self):
+        self.get_new_status()
+        lastmessage = self.last_msg  # local to prevent race condition
+
+        elevation = lastmessage["status-data-active-surface"]\
+                                ["Elevation-angle[deg]"]
+        return elevation
+
     def get_polar_position(self):
         self.get_new_status()
-        # local to prevent race condition
-        lastmessage = self.last_msg
-        p_soll = lastmessage["status-data-polarization-drive"] \
-            ["current-actual-position-[deg]"]
+        lastmessage = self.last_msg  # local to prevent race condition
+
+        p_soll = lastmessage["status-data-polarization-drive"]\
+                            ["current-actual-position[deg]"]
         return p_soll
 
     def get_hexapod_positions(self):
         self.get_new_status()
-        # local to prevent race condition
-        lastmessage = self.last_msg
+        lastmessage = self.last_msg  # local to prevent race condition
+
         hxpd_header = "status-data-hexapod-drive"
         hxpd_xlin = lastmessage[hxpd_header]["current_position_x_linear[mm]"]
         hxpd_ylin = lastmessage[hxpd_header]["current_position_y_linear[mm]"]
@@ -565,7 +693,7 @@ class MulticastReceiver:
         return (hxpd_xlin, hxpd_ylin, hxpd_zlin,
                 hxpd_xrot, hxpd_yrot, hxpd_zrot)
 
-    def print_mcast_data(self):
+    def print_mcast_data(self):  # Useless method with current implementation
         self.get_new_status()
         self.find_diferences()
 
