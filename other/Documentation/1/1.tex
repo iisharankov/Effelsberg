@@ -14,7 +14,6 @@
 \documentclass[12pt]{report}
 \usepackage[a4paper]{geometry}
 \usepackage[myheadings]{fullpage}
-\usepackage{fancyhdr}
 \usepackage{lastpage}
 \usepackage{graphicx, wrapfig, subcaption, setspace, booktabs}
 \usepackage[T1]{fontenc}
@@ -23,6 +22,8 @@
 \usepackage[english]{babel}
 \usepackage{sectsty}
 \usepackage{url, lipsum}
+\usepackage{inputenc}
+\usepackage{lmodern}
 
 
 \newcommand{\HRule}[1]{\rule{\linewidth}{#1}}
@@ -31,33 +32,57 @@
 \setcounter{secnumdepth}{5}
 
 %-------------------------------------------------------------------------------
-% HEADER & FOOTER
-%-------------------------------------------------------------------------------
-\pagestyle{fancy}
-\fancyhf{}
-\setlength\headheight{15pt}
-\fancyhead[L]{Student ID: 1034511}
-\fancyhead[R]{Anglia Ruskin University}
-\fancyfoot[R]{Page \thepage\ of \pageref{LastPage}}
-%-------------------------------------------------------------------------------
 % TITLE PAGE
 %-------------------------------------------------------------------------------
+\usepackage{listings}
+\usepackage{color}
 
+\definecolor{dkgreen}{rgb}{0,0.5,0}
+\definecolor{gray}{rgb}{0.6,0.6,0}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+  language=Python,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\color{red},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3,
+  otherkeywords={self},             % Add keywords here
+  keywordstyle=\color{blue},
+  emph={Class,__init__},          % Custom highlighting
+ emphstyle=\color{red},    % Custom highlighting style
+  %emph={1,2,3,4,5,6,7,8,9},          % Custom highlighting
+  %emphstyle=\color{red},    % Custom highlighting style
+  %stringstyle=\color{green},
+}
+
+
+
+    
 \begin{document}
 
-\title{ \normalsize \textsc{Module}
+\title{ \normalsize \textsc{Effelsberg 100m Radio Telescope}
 		\\ [2.0cm]
 		\HRule{0.5pt} \\
-		\LARGE \textbf{\uppercase{Title}}
+		\LARGE \textbf{\uppercase{Subreflector Program \\Users Manual}}
 		\HRule{2pt} \\ [0.5cm]
 		\normalsize \today \vspace*{5\baselineskip}}
 
 \date{}
 
 \author{
-		Student ID: 1034511 \\ 
-		Anglia Ruskin University \\
-		Department of Life Sciences }
+		Created by: Ivan Sharankov \\ 
+		Contact: ivansharankov3@gmail.com \\
+		}
 
 \maketitle
 \tableofcontents
@@ -72,8 +97,190 @@
 % BODY
 %-------------------------------------------------------------------------------
 
-\section*{Introduction}
-\lipsum
+\newpage
+\section*{Command Structure}
+\addcontentsline{toc}{section}{Command Structure}
+
+
+All commands should start with the following structure:
+
+\begin{center}
+EFFELSBERG:MTSUBREFLECTOR:[command]:[subcommand]
+\end{center} 
+
+Where [command] \& [subcommand] are entries defined below in sections
+
+\newpage
+\section*{Commands}
+\addcontentsline{toc}{section}{Commands}
+\subsection*{INTERLOCK}
+\addcontentsline{toc}{subsection}{INTERLOCK}
+
+	\begin{itemize}
+	
+		\item[] {\bf{ACTIVATE}}
+		\addcontentsline{toc}{subsubsection}{ACTIVATE}
+			\subitem {Activates the Interlock}
+			
+		\item[] {\bf{DEACTIVATE}}
+		\addcontentsline{toc}{subsubsection}{DEACTIVATE}
+			\subitem{Deactivates the Interlock}
+			
+		\item[] {\bf{SET float}}
+		\addcontentsline{toc}{subsubsection}{SET}
+			\begin{itemize}
+				\item[] {Given one float (or int) value, sets the interlock elevation to the desired value. Value should be able to be converted 
+				to float, and must be provided otherwise error is returned}
+			\end{itemize}			
+		\item[] {\bf{GET}}
+		\addcontentsline{toc}{subsubsection}{GET}
+			\subitem{Reads out the interlock elevation from the
+ last received multicast message}
+			
+	\end{itemize}
+	
+\newpage
+\hspace{-22px} 
+\subsection*{HEXAPOD}
+\addcontentsline{toc}{subsection}{HEXAPOD}
+
+	\begin{itemize}
+	
+		\item[] {\bf{SETABS float float float float float float float float}}
+		\addcontentsline{toc}{subsubsection}{SETABS}
+			\begin{itemize}
+				\item[] {SETABS takes 8 floats expecting the following order:}
+				
+				\subitem {x\_lin  \hspace{4px}  y\_lin  \hspace{4px}  z\_lin  \hspace{4px}  v\_lin  \hspace{4px} 
+				                    x\_rot \hspace{4px}  y\_rot \hspace{4px}  z\_rot \hspace{4px}  v\_rot}
+				\item[]  {\textit{Note: Current implementation requires both linear and rotational axis to be filled. This may be patched in the 
+				future to give the option to only fill one axis.}}
+				\item[] {All 6 values (velocities excluded) are checked to be within accepted safety margins of the MT Subreflector. If any fail, 
+				error is returned. Software trims edges of limits slightly due to a difficult bug caused if the motors surpass their axis limits (the MT Subreflector should check for these too, but issues have came up still). Limits of 6 axis are : \\ 
+				x\_lin: between -225 and 225 \\
+				y\_lin: between -175 and 175 \\
+				z\_lin: between -195 and 45 \\
+				x\_rot, \hspace{2px} y\_rot, \hspace{2px} z\_rot: between -0.95 and 0.95}
+				
+			\end{itemize}
+			
+
+		\item[] {\bf{GETABS}}
+		\addcontentsline{toc}{subsubsection}{GETABS}
+			\subitem {Reads out the absolute positions of the 6 hexapod rotors in the following order:}
+			\subsubitem {x\_lin  \hspace{4px}  y\_lin  \hspace{4px}  z\_lin  \hspace{4px} 
+							 x\_rot \hspace{4px}  y\_rot \hspace{4px}  z\_rot}
+                        
+                        
+		\item[] {\bf{SETREL float float float float float float float float }}
+			\begin{itemize}
+				\item[] {SETREL takes 8 floats expecting the following order:}
+				
+				\subitem {x\_lin  \hspace{4px}  y\_lin  \hspace{4px}  z\_lin  \hspace{4px}  v\_lin  \hspace{4px} 
+				                    x\_rot \hspace{4px}  y\_rot \hspace{4px}  z\_rot \hspace{4px}  v\_rot}
+				\item[]  {\textit{Note: Current implementation requires both linear and rotational axis to be filled. This may be patched in the 
+				future to give the option to only fill one axis.}}
+				\item[] {All 6 values (velocities excluded) are  added to the current values of the motors found from an internal reference 
+				similar to GETABS. Values are appended to current values and checked to be within accepted safety margins of the MT
+				 Subreflector. If any fail, error is returned. Software trims edges of limits slightly due to a difficult bug caused if the 
+				 motors surpass their axis limits (the MT Subreflector should check for these too, but issues have came up still). 
+				 Limits of 6 axis are : \\ 
+				x\_lin: between -225 and 225 \\
+				y\_lin: between -175 and 175 \\
+				z\_lin: between -195 and 45 \\
+				x\_rot, \hspace{2px} y\_rot, \hspace{2px} z\_rot: between -0.95 and 0.95}
+				
+			\end{itemize}
+			
+		\item[] {\bf{DEACTIVATE}}
+		\addcontentsline{toc}{subsubsection}{DEACTIVATE}
+			\subitem{Deactivates the hexapod}
+			
+		\item[] {\bf{ACTIVATE}}
+		\addcontentsline{toc}{subsubsection}{ACTIVATE}
+			\subitem{Activates the hexapod}
+
+		\item[] {\bf{STOP}}
+		\addcontentsline{toc}{subsubsection}{STOP}
+			\subitem{Immediately stops the hexapod?}
+
+		\item[] {\bf{INTERLOCK}}
+		\addcontentsline{toc}{subsubsection}{INTERLOCK}
+			\subitem{We currently have no idea what this command does, the resources we have do not define it well}
+
+		\item[] {\bf{?}}
+		\addcontentsline{toc}{subsubsection}{?}
+			\subitem{Returns all the possible hexapod commands that can be used}
+\end{itemize}
+ 
+\newpage
+\hspace{-22px}  
+\subsection*{ASF}
+\addcontentsline{toc}{subsection}{ASF}
+
+	\begin{itemize}
+	
+			\item[] {\bf{REST}}
+			\addcontentsline{toc}{subsubsection}{REST}
+			\subitem{-----}
+			
+		\item[] {\bf{PRESET}}
+		\addcontentsline{toc}{subsubsection}{PRESET}
+			\subitem{-----}
+
+		\item[] {\bf{AUTO}}
+		\addcontentsline{toc}{subsubsection}{AUTO}
+			\subitem{-----}
+
+		\item[] {\bf{OFFSET}}
+		\addcontentsline{toc}{subsubsection}{OFFSET}
+			\subitem{-----}
+			
+		\item[] {\bf{IGNORE}}
+		\addcontentsline{toc}{subsubsection}{IGNORE}
+			\subitem{Ignore any command input for asf}
+			
+		\item[] {\bf{DEACTIVATE}}
+		\addcontentsline{toc}{subsubsection}{DEACTIVATE}
+			\subitem{Deactivates the hexapod}
+
+		\item[] {\bf{STOP}}
+		\addcontentsline{toc}{subsubsection}{STOP}
+			\subitem{Immediately stops the asf?}
+
+		\item[] {\bf{ERROR}}
+		\addcontentsline{toc}{subsubsection}{ERROR}
+			\subitem{Acknowledges any errors produced by the asf to be dismissed}
+
+		\item[] {\bf{?}}
+		\addcontentsline{toc}{subsubsection}{?}
+			\subitem{Returns all the possible asf commands that can be used}
+\end{itemize}
+
+
+
+\iffalse
+ elif "DEACTIVATE" in subcommand:
+            logging.debug("Hexapod deactivation command given")
+            self.mtcommand_client.deactivate_hxpd()
+        elif "ACTIVATE" in subcommand:
+            logging.debug("Hexapod activation command given")
+            self.mtcommand_client.activate_hxpd()
+        elif "STOP" in subcommand:
+            logging.debug("Hexapod stop command given")
+            self.mtcommand_client.stop_hxpd()
+        elif "INTERLOCK" in subcommand:
+            logging.debug("Hexapod interlock command given")
+            self.mtcommand_client.interlock_hxpd()
+        elif "ERROR" in subcommand:
+            logging.debug("Hexapod acknowledge error command given")
+            self.mtcommand_client.acknowledge_error_on_hxpd()
+        elif "?" in subcommand:
+            self.msg = 'Usable types for hexapod are: "GETABS", "SETABS", ' \
+                       '"SETREL", "ACTIVATE", "DEACTIVATE", ' \
+                       '"STOP", "INTERLOCK", "ERROR".'
+\fi
+
 
 
 
@@ -83,121 +290,39 @@
 % REFERENCES
 %-------------------------------------------------------------------------------
 \newpage
-\section*{References}
+\subsection*{References}
 \addcontentsline{toc}{section}{References}
 
 Anand, U., 2010. The Elusive Free Radicals, \textit{The Clinical Chemist,} [e-journal] Available at:<\url{http://www.clinchem.org/content/56/10/1649.full.pdf}> [Accessed 2 November 2013]
-\newline
-\newline
 
-Biology Forums, 2012. \textit{Normal glomerulus. Acute glomerulonephritis.} [online] Available at: <\url{http://biology-forums.com/index.php?action=gallery;sa=view;id=9284}> [Accessed 23 October 2013].
-\newline
-\newline
 
-Budisavljevic, M., Hodge, L., Barber, K., Fulmer, J., Durazo-Arvizu, R., Self, S., Kuhlmann, M., Raymond, J. and Greene, E., 2003. Oxidative stress in the pathogenesis of experimental mesangial proliferative glomerulonephritis, \textit{American Journal of Physiology - Renal Physiology,} 285(6), pp. 1138-1148.
-\newline
-\newline
 
-Chien, C., Lee, P., Chen, C., Ma, M., Lai, M. and Hsu, S., 2001. De Novo Demonstration and Co-localization of Free-Radical Production and Apoptosis Formation in Rat Kidney Subjected to Ischemia/Reperfusion, \textit{Journal of the American Society of Nephrology,} 12(5), pp. 973-982.
-\newline
-\newline
 
-Couser, W., 1993. Pathogenesis of glomerulonephritis, \textit{Kidney International Supplements,} 42, pp. 19-26.
-\newline
-\newline
 
-De Gasparo, M., 2002. Angiotensin II and nitric oxide interaction, \textit{Heart Failure Reviews,} [e-journal] Available at:<\url{http://www.ncbi.nlm.nih.gov/pubmed/12379820}> [Accessed 26 October 2013]
-\newline
-\newline
 
-Edinburgh Renal Education Pages, 2012. \textit{Glomerulonephritis} [online] Available at: <\url{http://www.edrep.org/pages/textbook/glomerulonephritis.php}> [Accessed 25 October 2013].
-\newline
-\newline
+\iffalse
+ \begin{lstlisting}
+   //Java program to demonstrate FileNotFoundException 
+import java.io.File; 
+import java.io.FileNotFoundException; 
+import java.io.FileReader; 
+ class File_notFound_Demo { 
+  
+    public static void main(String args[])  { 
+        try { 
+  
+            // Following file does not exist 
+            File file = new File("E://file.txt"); 
+  
+            FileReader fr = new FileReader(file); 
+        } catch (FileNotFoundException e) { 
+           System.out.println("File does not exist"); 
+        } 
+    } 
+} 
+    \end{lstlisting}
 
-Forbes, J., Coughlan, M. and Cooper, M., 2008. Oxidative Stress as a Major Culprit in Kidney Disease in Diabetes, \textit{Diabetes,} 57(6), pp. 1446-1454.
-\newline
-\newline
-
-Geeky Medics, 2010. \textit{Glomerulonephritis} [online] Available at: <\url{http://geekymedics.com/2010/10/27/glomerulonephritis/}> [Accessed 25 October 2013].
-\newline
-\newline
-
-Gryglewski, R., Palmer, R., Moncada, S., 1986. Superoxide anion is involved in the break­down of endothelium derived relaxing factor, \textit{Nature,} 320, pp. 454-456.
-\newline
-\newline
-
-Halliwell, B., 2001. Free Radicals and other reactive species in Disease, \textit{Encyclopedia of Life Sciences,} [e-journal] Available at:<\url{http://web.sls.hw.ac.uk/teaching/level4/bcm1_2/reading/oxidative_stress/files/Oxidative_stress.pdf}> [Accessed 19 October 2013]
-\newline
-\newline
-
-Huang, H., Patel, P. and Salahudeen, A., 2001. Lazaroid compounds prevent early but not late stages of oxidant-induced cell injury: potential explanation for the lack of efficacy of lazaroids in clinical trials, \textit{Pharmacological Research,} 41(1), pp. 55-61.
-\newline
-\newline
-
-Klinger, J., Abman, S. and Gladwin, M., 2013. Nitric Oxide Deficiency and Endothelial Dysfunction in Pulmonary Arterial Hypertension, \textit{American Journal of Respiratory and Critical Care Medicine,} 188(6), pp. 639-646.
-\newline
-\newline
-
-Lindemann, I., Boettcher, J., Oertel, K., Pasternack, R., Heine, A. and Klebe, G. 2012. Inhibitors of Transglutaminase 2: A therapeutic option in celiac disease, \textit{To be Published,} [e-journal + PDB structure] Available at:<\url{http://www.ebi.ac.uk/pdbe-srv/view/entry/3s3s/summary}> [Accessed 24 October 2013]
-\newline
-\newline
-
-Mayo Clinic, 2011. \textit{Glomerulonephritis} [online] Available at: <\url{http://www.mayoclinic.com/health/glomerulonephritis/DS00503/}> [Accessed 20 October 2013].
-\newline
-\newline
-
-McCord, J., Roy, R. and Schaffer, S., 1985. Free radicals and myocardial ischemia. The role of xanthine oxidase, \textit{Advances in myocardiology,} [e-journal] Available at:<\url{http://www.ncbi.nlm.nih.gov/pubmed/2982206}> [Accessed 24 October 2013]
-\newline
-\newline
-
-National Health Service, 2012. \textit{Causes of glomerulonephritis} [online] Available at: <\url{http://www.nhs.uk/Conditions/Glomerulonephritis/Pages/Causes.aspx}> [Accessed 20 October 2013].
-\newline
-\newline
-
-Niaudet, P., 2013. \textit{Overview of the pathogenesis and causes of glomerulonephritis in children.} [online] Available at: <\url{http://www.uptodate.com/contents/overview-of- \ the-pathogenesis-and-causes-of-glomerulonephritis-in-children}> [Accessed 21 October 2013].
-\newline
-\newline
-
-Ronco, P., 2013. \textit{Mechanisms of glomerular crescent formation.} [online] Available at: <\url{http://www.uptodate.com/contents/mechanisms-of-glomerular-crescent-formation}> [Accessed 21 October 2013].
-\newline
-\newline
-
-Rutchik, J., 2013. \textit{Toxic Neuropathy Clinical Presentation.} [online] Available at: <\url{http://emedicine.medscape.com/article/1175276-clinical#a0216}> [Accessed 26 October 2013].
-\newline
-\newline
-
-R\&D Systems, 2013. \textit{Technical Information. Ischemia/Reperfusion Injury.} [online] Available at: <\url{http://www.rndsystems.com/cb_detail_objectname_SP96_Ischemia.aspx}> [Accessed 28 October 2013].
-\newline
-\newline
-
-Salahudeen, A., 1999. Free Radicals in Kidney Disease and Transplantation, \textit{Saudi Journal of Kidney Diseases and Transplantation,} 10(2), pp. 137-143.
-\newline
-\newline
-
-Sarma, A., Mallick, A. and Ghosh, A., 2010. Free Radicals and Their Role in Different Clinical Conditions: An Overview, \textit{International Journal of Pharma Sciences and Research,} 1(3), pp. 182-192.
-\newline
-\newline
-
-Shah, S., Baliga, R., Rajapurkar, M. and Fonseca, V., 2007. Oxidants in Chronic Kidney Disease, \textit{Journal of the American Society of Nephrology,} 18(1), pp. 16-28.
-\newline
-\newline
-
-The University of Utah, Unknown. \textit{Glomerulonephritis} [online] Available at: <\url{http://library.med.utah.edu/WebPath/RENAHTML/RENALIDX.html#8}> [Accessed 25 October 2013].
-\newline
-\newline
-
-Wang, C. and Salahudeen, A., 1994. Cyclosporine nephrotoxicity: attenuation by an antioxidant -inhibitor of lipid peroxidation in-vitro and in-vivo, \textit{Transplantation,} 58, pp. 940-946.
-\newline
-\newline
-
-Wang, C. and Salahudeen, A., 1995. Lipid peroxidation accompanies cyclosporine nephrotoxicity: effects of vitamin E, \textit{Kidney International,} 47, pp. 927-934.
-\newline
-\newline
-
-Weiss, S., 1989. Tissue Destruction by Neutrophils, \textit{New England Journal of Medicine,} 320, pp. 365-376.
-\newline
-\newline
-
+\fi
 
 \end{document}
 
