@@ -20,6 +20,7 @@ class SubreflectorClient:
         self.lock = threading.Lock()
         self.chosen_server = self.use_test_server(use_test_server)
         self.connection_flag = False
+        self.starttime = time.time()
 
     def main(self):
         self.activate_multicasting()
@@ -97,19 +98,37 @@ class SubreflectorClient:
         """
         sock.send(b"\n")  # Initial message is needed to start stream
         count = 0
+        data = b''
         while 1:
-            time.sleep(1)
+            time.sleep(0.5)
             try:
 
                 # Due to the nature of TCP/IP connections, and the properties
                 # of the subreflector, it is safer to receive two messages and
                 # find a full one inside between the flags. Explained in docs
-                data = sock.recv((1760*2))
+                packet = sock.recv((1760*2))
+                data += packet
+
+                # packets come in size 736 or ***REMOVED***. Add packets until length is
+                # twice the size of the message to ensure full message inside
+                assert len(data) >= 1760 * 2
+
+                if not len(data) == (1760*2):
+                    logging.warning(f"Data was weird: {data}")
+
+                if data == b'':
+                    logging.warning(
+                        f"data was empty bytes string. Counter at: {count}. "
+                        f"It took {time.time()-self.starttime} seconds for "
+                        f"an empty string to show")
 
             except socket.timeout:
                 msg = f"Socket timed out after {sock.gettimeout()} seconds"
                 logging.debug(msg)
                 print(msg, " Trying again.")
+
+            except AssertionError:
+                pass
 
             else:
                 # Finds a start flag and cuts everything before it
@@ -119,15 +138,17 @@ class SubreflectorClient:
                 # Finds the first end flag afterwards and does the same
                 endindex = (data.find(b"\xd1\xcf\xfc\xa1"))
                 full_msg = data[:endindex + 4]  # +4 as endindex is start string
-
-                if len(full_msg) != 1760:
+                # logging.debug(f"full_length msg is length {len(full_msg)}")
+                if len(full_msg) > 1760:
                     msg = "The message didn't register the correct length, " \
                           "data may have been added/lost, changing the length."
                     logging.exception(msg)
                     raise ValueError(msg)
 
                 # Expected length of the message
+
                 elif len(full_msg) == 1760:
+                    data = b''
 
                     # Optional pickling of the message for storage
                     # pickle.dump(full_msg, open("Subreflector_Output_Nov-4.p", 'ab'))
@@ -135,15 +156,19 @@ class SubreflectorClient:
                     # TODO: Next line just here for testing reasons
                     count += 1
                     print(f"\rmessage sent x{count}", end='')
-
+                    # if count == 109:
+                    #     print(time.time() -self.starttime)
                     status_message = self.package_msg(full_msg)
+                    # print("    ", status_message["status-data-active-surface"] \
+                    #           ["Elevation-angle[deg]"])
                     self.multicast_sock.sendto(status_message, MULTICAST)
+                    status_message = None
 
             finally:
                 with self.lock:
                      if self.connection_flag:
                         self.connection_flag = False  # resets the flag
-                        logging.debug("Closing socket")
+                        logging.debug("Socket closed")
                         break
 
     def end_connection(self):
@@ -154,23 +179,8 @@ class SubreflectorClient:
 
     def package_msg(self, bytes_string):
         """
-        Take given bytes string and parses it to be made into a JSON, then
-        returns the encoded JSON string
-
-        :param bytes_string: binary string
-            input string from subreflector, recieved from socket
-        :return: JSON string that is is encoded into binary for future socket
-        """
-        status_message = self.decompose_to_json(bytes_string)
-
-        # Dumps JSON dict to string and encodes to bytes to send over socket
-        status_string = json.dumps(status_message, indent=2).encode('utf-8')
-        return status_string
-
-    def decompose_to_json(self, bytes_string):
-        """
         Receives a bytes string and decodes it with struct, then parses
-        all the values into a JSON dict
+        all the values into a JSON dict, then dumps to json string
 
         :param bytes_string: binary string
             input string from subreflector, received from socket
@@ -1391,7 +1401,11 @@ class SubreflectorClient:
 
             }
 
-            return status_message
+            # print("   ", status_message["status-data-active-surface"]\
+            #                     ["Elevation-angle[deg]"])
+            # Dumps JSON dict to string and encodes to bytes to send over socket
+            status_string = json.dumps(status_message, indent=2).encode('utf-8')
+            return status_string
 
     @staticmethod
     def decode_struct(data):
@@ -1429,4 +1443,4 @@ if __name__ == '__main__':
         level=logging.DEBUG, format='%(asctime)s - %(levelname)s- %(message)s',
         datefmt='%d-%b-%y %H:%M:%S')
 
-    SubreflectorClient(use_test_server=True).main()
+    SubreflectorClient(use_test_server=False).main()
