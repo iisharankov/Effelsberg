@@ -119,21 +119,17 @@ Where [command] \& [subcommand] are entries defined below in sections
 	\begin{itemize}
 	
 		\item[] {\bf{ACTIVATE}}
-		\addcontentsline{toc}{subsubsection}{ACTIVATE}
 			\subitem {Activates the Interlock}
 			
 		\item[] {\bf{DEACTIVATE}}
-		\addcontentsline{toc}{subsubsection}{DEACTIVATE}
 			\subitem{Deactivates the Interlock}
 			
 		\item[] {\bf{SET float}}
-		\addcontentsline{toc}{subsubsection}{SET}
 			\begin{itemize}
 				\item[] {Given one float (or int) value, sets the interlock elevation to the desired value. Value should be able to be converted 
 				to float, and must be provided otherwise error is returned}
 			\end{itemize}			
 		\item[] {\bf{GET}}
-		\addcontentsline{toc}{subsubsection}{GET}
 			\subitem{Reads out the interlock elevation from the
  last received multicast message}
 			
@@ -147,7 +143,6 @@ Where [command] \& [subcommand] are entries defined below in sections
 	\begin{itemize}
 	
 		\item[] {\bf{SETABS float float float float float float float float}}
-		\addcontentsline{toc}{subsubsection}{SETABS}
 			\begin{itemize}
 				\item[] {SETABS takes 8 floats expecting the following order:}
 				
@@ -157,16 +152,15 @@ Where [command] \& [subcommand] are entries defined below in sections
 				future to give the option to only fill one axis.}}
 				\item[] {All 6 values (velocities excluded) are checked to be within accepted safety margins of the MT Subreflector. If any fail, 
 				error is returned. Software trims edges of limits slightly due to a difficult bug caused if the motors surpass their axis limits (the MT Subreflector should check for these too, but issues have came up still). Limits of 6 axis are : \\ 
-				x\_lin: between -225 and 225 \\
-				y\_lin: between -175 and 175 \\
-				z\_lin: between -195 and 45 \\
-				x\_rot, \hspace{2px} y\_rot, \hspace{2px} z\_rot: between -0.95 and 0.95}
+				x\_lin: between -225 mm and 225 mm \\
+				y\_lin: between -175 mm and 175 mm \\
+				z\_lin: between -195 mm and 45 mm \\
+				x\_rot, \hspace{2px} y\_rot, \hspace{2px} z\_rot: between -0.95 deg and 0.95 deg}
 				
 			\end{itemize}
 			
 
 		\item[] {\bf{GETABS}}
-		\addcontentsline{toc}{subsubsection}{GETABS}
 			\subitem {Reads out the absolute positions of the 6 hexapod rotors in the following order:}
 			\subsubitem {x\_lin  \hspace{4px}  y\_lin  \hspace{4px}  z\_lin  \hspace{4px} 
 							 x\_rot \hspace{4px}  y\_rot \hspace{4px}  z\_rot}
@@ -185,31 +179,26 @@ Where [command] \& [subcommand] are entries defined below in sections
 				 Subreflector. If any fail, error is returned. Software trims edges of limits slightly due to a difficult bug caused if the 
 				 motors surpass their axis limits (the MT Subreflector should check for these too, but issues have came up still). 
 				 Limits of 6 axis are : \\ 
-				x\_lin: between -225 and 225 \\
-				y\_lin: between -175 and 175 \\
-				z\_lin: between -195 and 45 \\
-				x\_rot, \hspace{2px} y\_rot, \hspace{2px} z\_rot: between -0.95 and 0.95}
+				x\_lin: between -225 mm and 225 mm \\
+				y\_lin: between -175 mm and 175 mm \\
+				z\_lin: between -195 mm and 45 mm \\
+				x\_rot, \hspace{2px} y\_rot, \hspace{2px} z\_rot: between -0.95 deg and 0.95 deg}
 				
 			\end{itemize}
 			
 		\item[] {\bf{DEACTIVATE}}
-		\addcontentsline{toc}{subsubsection}{DEACTIVATE}
 			\subitem{Deactivates the hexapod}
 			
 		\item[] {\bf{ACTIVATE}}
-		\addcontentsline{toc}{subsubsection}{ACTIVATE}
 			\subitem{Activates the hexapod}
 
 		\item[] {\bf{STOP}}
-		\addcontentsline{toc}{subsubsection}{STOP}
 			\subitem{Immediately stops the hexapod?}
 
 		\item[] {\bf{INTERLOCK}}
-		\addcontentsline{toc}{subsubsection}{INTERLOCK}
 			\subitem{We currently have no idea what this command does, the resources we have do not define it well}
 
 		\item[] {\bf{?}}
-		\addcontentsline{toc}{subsubsection}{?}
 			\subitem{Returns all the possible hexapod commands that can be used}
 \end{itemize}
  
@@ -221,43 +210,70 @@ Where [command] \& [subcommand] are entries defined below in sections
 	\begin{itemize}
 	
 			\item[] {\bf{REST}}
-			\addcontentsline{toc}{subsubsection}{REST}
 			\subitem{-----}
 			
 		\item[] {\bf{PRESET}}
-		\addcontentsline{toc}{subsubsection}{PRESET}
 			\subitem{-----}
 
 		\item[] {\bf{AUTO}}
-		\addcontentsline{toc}{subsubsection}{AUTO}
 			\subitem{-----}
 
 		\item[] {\bf{OFFSET}}
-		\addcontentsline{toc}{subsubsection}{OFFSET}
 			\subitem{-----}
 			
 		\item[] {\bf{IGNORE}}
-		\addcontentsline{toc}{subsubsection}{IGNORE}
 			\subitem{Ignore any command input for asf}
 			
 		\item[] {\bf{DEACTIVATE}}
-		\addcontentsline{toc}{subsubsection}{DEACTIVATE}
-			\subitem{Deactivates the hexapod}
+			\subitem{Deactivates the asf }
 
 		\item[] {\bf{STOP}}
-		\addcontentsline{toc}{subsubsection}{STOP}
 			\subitem{Immediately stops the asf?}
 
 		\item[] {\bf{ERROR}}
-		\addcontentsline{toc}{subsubsection}{ERROR}
 			\subitem{Acknowledges any errors produced by the asf to be dismissed}
 
 		\item[] {\bf{?}}
-		\addcontentsline{toc}{subsubsection}{?}
 			\subitem{Returns all the possible asf commands that can be used}
 \end{itemize}
 
 
+\newpage
+\hspace{-22px}  
+\subsection*{POLAR}
+\addcontentsline{toc}{subsection}{POLAR}
+
+	\begin{itemize}
+	
+			\item[] {\bf{GETABS}}
+			\subitem{-----}
+			
+		\item[] {\bf{SETABS}}
+			\subitem{-----}
+
+		\item[] {\bf{SETREL}}
+			\subitem{-----}
+					
+		\item[] {\bf{ACTIVATE}}
+			\subitem{Activates the polar}
+			
+		\item[] {\bf{IGNORE}}
+			\subitem{-----}
+				
+		\item[] {\bf{DEACTIVATE}}
+			\subitem{Deactivates the polar}
+
+		\item[] {\bf{STOP}}
+			\subitem{Immediately stops polar?}
+
+		\item[] {\bf{ERROR}}
+			\subitem{Acknowledges any errors produced by the asf to be dismissed}
+
+		\item[] {\bf{?}}
+			\subitem{Returns all the possible asf commands that can be used}
+\end{itemize}
+'message type not recognized. Correct types for polar' \
+                       'are: "GETABS", "SETABS", "SETREL", 
 
 \iffalse
  elif "DEACTIVATE" in subcommand:
