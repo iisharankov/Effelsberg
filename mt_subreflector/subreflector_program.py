@@ -18,7 +18,7 @@ SDH_PORT = 1602  # Port where sdh output can be reached
 SR_MULTI = ***REMOVED***  # Port where subreflector_client.py outputs JSON
 LOCAL_ADDRESS = ''  # local IP
 MULTICAST_GROUP = '***REMOVED***'  # Multicast IP address
-USETESTSERVER = True
+USETESTSERVER = False
 
 class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     """
@@ -29,15 +29,16 @@ class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
           background, and to hang until closed manually.
           """
 
-    def __init__(self, sr_client, *args, **kwargs):
+    def __init__(self, sr_client, is_test_server, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sr_client = sr_client
-        self.udp_parser_client = UDPCommandParser(self.sr_client)
+        self.udp_parser_client = UDPCommandParser(self.sr_client,
+                                                  is_test_server)
         logging.debug("Initialized ThreadingUDPServer")
-        self.helll = "hell"
+        self.helll = "hello"
         # self.start_sr_client()
 
-def start_udp_server(sr_client):
+def start_udp_server(sr_client, is_test_server):
     """
     This function sets up a non-daemon thread to initiate the
     ThreadingUDPserver in the background. This is the code
@@ -47,7 +48,8 @@ def start_udp_server(sr_client):
     dest_address = (LOCAL_ADDRESS, UDPTELNET_PORT)
     logging.debug(f"ThreadingUDPServer accessing address:"
                   f" {dest_address[0]}, port: {dest_address[1]}")
-    server = ThreadingUDPServer(sr_client, dest_address, MyUDPHandler, )
+    server = ThreadingUDPServer(sr_client, is_test_server,
+                                dest_address, MyUDPHandler, )
 
     logging.debug(f"Setting server to run forever")
     t = threading.Thread(target=server.serve_forever, name='UDPSERVER')
@@ -57,7 +59,7 @@ def start_udp_server(sr_client):
     t.start()
 
 
-def start_connections():
+def start_connections(is_test_server):
     """
     Start connections does just that, it connects to two servers. One is in
     subreflector_client.py which directly connects to the output of the
@@ -73,11 +75,11 @@ def start_connections():
 
         # def start_sr_client(self):
         logging.debug("Start Startup_Subreflector_Client instance")
-        sr_client = StartupSubreflectorClient()
+        sr_client = StartupSubreflectorClient(is_test_server)
         sr_client.start_sr_client()
 
         logging.debug("Start UDP server instance")
-        start_udp_server(sr_client)
+        start_udp_server(sr_client, is_test_server)
 
     except Exception as E:
         logging.exception("An exception occurred starting the threaded classes")
@@ -92,11 +94,10 @@ class StartupSubreflectorClient:
     until closed manually.
     """
 
-    def __init__(self):
+    def __init__(self, is_test_server):
         self.thread = None
         self.stop_threads = False
-        # TODO: add user input for udp side if they want test server or real
-        self.srclient = subreflector_client.SubreflectorClient(USETESTSERVER)
+        self.srclient = subreflector_client.SubreflectorClient(is_test_server)
 
     def start_sr_client(self):
         """
@@ -157,13 +158,13 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
     """
 
     def handle(self):
+        logging.debug("#################################################")
         logging.debug("Telnet: Message received from udp-telnet")
         # takes message, decodes to string and - all whitespace (by rejoining)
         telnet_msg = self.request[0].decode('utf-8')
         # print(telnet_msg)
         # telnet_msg = ''.join(self.request[0].decode('utf-8').split())
 
-        logging.debug("Telnet: Sending message to CommandModule")
         self.server.udp_parser_client.probe_command(telnet_msg)
         msg = self.server.udp_parser_client.return_message()
 
@@ -176,6 +177,8 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
         returnsocket = self.request[1]
         returnsocket.sendto(msg.encode(), self.client_address)
         logging.debug("Telnet: Message sent back to udp-telnet client")
+        logging.debug("#################################################")
+
 
 
 class UDPCommandParser:
@@ -185,7 +188,7 @@ class UDPCommandParser:
     TODO: Complete doc string
     """
 
-    def __init__(self, sr_client):
+    def __init__(self, sr_client, is_test_server):
         """
         :param sr_client: object
             instance of the StartupSubreflectorClient class
@@ -197,7 +200,14 @@ class UDPCommandParser:
 
         # These are instances that are used within methods
         self.mcast_receiver = MulticastReceiver()  # For recieving data from SR
-        self.mtcommand_client = mtcommand.MTCommand()  # Sending commands to SR
+        # self.mcast_receiver = threading.Thread(target=MulticastReceiver, args=(), name="Mcast Receiver")
+        # self.mcast_receiver.daemon = False
+        # self.mcast_receiver.start()
+        # self.mcast_receiver.join()
+
+        # Sending commands to SR
+        self.mtcommand_client = mtcommand.MTCommand(is_test_server)
+        self.mtcommand_client.setup_connection()
         self.sr_client = sr_client
 
     # # # # # General parsing section # # # # #
@@ -315,6 +325,11 @@ class UDPCommandParser:
 
     # # # # # Hexapod parsing section # # # # #
     def hexapod_control(self, subcommand):
+        limits = \
+            " x_lin (1st val): between -225 and 225 \n" \
+            " y_lin (2nd val): between -175 and 175 \n" \
+            " z_lin (3rd val): between -195 and 45 \n" \
+            " x_rot, y_rot, z_r (5th-8th values): between -0.95 and 0.95"
 
         if "GETABS" in subcommand:
             logging.debug("Hexapod get absolute position command given")
@@ -363,7 +378,8 @@ class UDPCommandParser:
                             f"The absolute values given go over the " \
                             f"permitted limits. Please input smaller " \
                             f"absolute values, or use \"GETABS\" to read " \
-                            f"out current positions. Error: {E}"
+                            f"out current positions. Read Users Manual" \
+                            f"for more information. Limits are: \n" + limits
 
                         logging.exception("Relative inputs go over saftey "
                                           "limits set on Hexapod. Aborted")
@@ -402,10 +418,11 @@ class UDPCommandParser:
                               f"current hexapod values go over the permitted " \
                               f"limits. Please input smaller relative " \
                               f"values, or use \"GETABS\" to read out " \
-                              f"current positions. Error: {E}"
+                              f"current positions. Read Users Manual for more" \
+                              f"information. Limits are: \n" + limits
                         self.msg = msg
-                        logging.exception("Relative inputs go over saftey "
-                                          "limits set on Hexapod. Aborted")
+                        logging.exception("Relative inputs given go over saftey"
+                                          " limits set on Hexapod. Aborted")
                     else:
                         self.mtcommand_client.preset_abs_hxpd(
                             new_xlin, new_ylin, new_zlin, new_val[3],
@@ -489,6 +506,11 @@ class UDPCommandParser:
             positions = self.mcast_receiver.get_polar_position()
             message = f"\n P_soll[deg]: {positions[0]},"
             self.msg = message
+
+        elif "IGNORE" in subcommand:
+            logging.debug("Polar ignore command given")
+            self.mtcommand_client.ignore_polar()
+
         elif "DEACTIVATE" in subcommand:
             logging.debug("Polar deactivate command given")
             self.mtcommand_client.deactivate_polar()
@@ -521,12 +543,13 @@ class UDPCommandParser:
 
         elif "?" in subcommand:
             self.msg = 'Usable types for polar are: "GETABS", "SETABS", ' \
-                       '"SETREL", "ACTIVATE", "DEACTIVATE", "STOP", "ERROR".'
+                       '"SETREL", "IGNORE", "ACTIVATE", "DEACTIVATE", ' \
+                       '"STOP", "ERROR".'
 
         else:
             logging.debug("User command fit no polar option")
             self.msg = 'message type not recognized. Correct types for polar' \
-                       'are: "GETABS", "SETABS", "SETREL", ' \
+                       'are: "GETABS", "SETABS", "SETREL", "IGNORE", ' \
                        '"ACTIVATE", "DEACTIVATE", "STOP", "ERROR".'
 
     # # # # # Other Controls # # # # #
@@ -577,31 +600,43 @@ class MulticastReceiver:
     """
 
     def __init__(self):
+        logging.debug("Initializing MulticastReciever")
         self.sock = None  # set in __init__ for PEP-8 consistency
         self.data = None
         self.last_msg = None
         self.init_multicast()
 
     def init_multicast(self):
-        # Todo Make this into a context manager class maybe?
         """" want to use a context manager here, but it's important to have a
         seperate method to recv data rather than create a socket every time, so
         sadly it was simpler to avoid a context manager, and risk not closing
         the socket (though, it shouldn't be closed while the program is running)
         """
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        server_address = ('', SR_MULTI)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind(server_address)
 
-        group = socket.inet_aton(MULTICAST_GROUP)
-        mreq = struct.pack('4sL', group, socket.INADDR_ANY)
-        self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        logging.debug("Setting up the multicast receiver")
+        try:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            server_address = ('', SR_MULTI)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sock.bind(server_address)
+
+            group = socket.inet_aton(MULTICAST_GROUP)
+            mreq = struct.pack('4sL', group, socket.INADDR_ANY)
+            self.sock.setsockopt(socket.IPPROTO_IP,
+                                 socket.IP_ADD_MEMBERSHIP, mreq)
+        except ConnectionError or OSError:
+            logging.exception("There was an exception setting "
+                              "up the multicast receiver")
 
     def recv_mcast_data(self):
         try:
-            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 200)
+            logging.debug("Recieved new multicast packet")
+            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
             self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
+            print('\n')
+            print(self.data['status-data-irig-b-system']['current-time-as-modified-julian-day(mjd)'])
+            print(self.data["status-data-active-surface"]["Elevation-angle[deg]"])
+
         except OSError or ConnectionError as E:
             logging.exception(f"Error occurred receiving multicast data: {E}")
 
@@ -620,13 +655,22 @@ class MulticastReceiver:
 
     def deepcopy_mcast_data(self):
         # Deep copy to avoid any issues with memory linkage
+        logging.debug("New message deep copied to instance variable")
         self.last_msg = copy.deepcopy(self.data)
+        logging.debug(f'Interlock elv self.last: {self.last_msg["status-data-active-surface"]["Elevation-angle[deg]"]}')
 
     def get_new_status(self):
         try:
+
             self.recv_mcast_data()
+            logging.debug(
+                f'Interlock elv self.data: {self.data["status-data-active-surface"]["Elevation-angle[deg]"]}')
+
             self.assert_static_data()
             self.deepcopy_mcast_data()
+            logging.debug(f'Interlock elv self.last: '
+                          f'{self.last_msg["status-data-active-surface"]["Elevation-angle[deg]"]}')
+            logging.debug("New message received and initialized correctly")
         except Exception as E:
             msg = "There was an exception receiving and processing a " \
                   "multicast message from the subreflector."
@@ -664,7 +708,13 @@ class MulticastReceiver:
         print(differences)
 
     def get_elevation(self):
-        self.get_new_status()
+        # self.get_new_status()
+
+        self.recv_mcast_data()
+        self.assert_static_data()
+        self.deepcopy_mcast_data()
+
+
         lastmessage = self.last_msg  # local to prevent race condition
 
         elevation = lastmessage["status-data-active-surface"]\
@@ -705,4 +755,4 @@ if __name__ == "__main__":
                                '- %(funcName)s- %(message)s',
                         datefmt='%d-%b-%y %H:%M:%S')
 
-    start_connections()
+    start_connections(USETESTSERVER)
