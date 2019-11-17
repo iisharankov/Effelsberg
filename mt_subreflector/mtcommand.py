@@ -1,24 +1,50 @@
 #!/usr/bin/env python
 import socket
-import datetime
 import ctypes
 import logging
+import datetime
 
-TCP_IP = '***REMOVED***'
-TCP_PORT = ***REMOVED***
+SR_ADDR = '***REMOVED***'
+SR_PORT = ***REMOVED***
 BUFFER_SIZE = ***REMOVED***
 
 
 class MTCommand:
-    def __init__(self):
+    def __init__(self, use_test_server):
         # Initializes the socket to the Subreflector
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((TCP_IP, TCP_PORT))
         self.structure = None
         self.msg = None
         self.startflag = 0x1DFCCF1A
         self.endflag = 0xA1FCCFD1
         self.seconds = 10001  # initial value, overwritten by structure methods
+        self.servertype = use_test_server
+
+    def setup_connection(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        try:
+            self.sock.connect(self.use_test_server(self.servertype))
+        except ConnectionError:
+            logging.exception("Error connecting to command port on SR")
+
+    def use_test_server(self, test_server):
+        """
+        Swaps real SR address for local if instance of class is needed for tests
+        :param flag: bool
+            if flag set to true, the address for the test server is used instead
+        :return: IP address and port for the respective subreflector
+        """
+        # TODO Fails to connect as port ***REMOVED*** not active on mock_subreflector.py
+        if test_server:
+            msg = "Connected to local subreflector in MockSubreflector.py"
+            logging.debug(msg)
+            return '', SR_PORT
+
+        else:
+            msg = f"Connected to mt_subreflector. IP: {SR_ADDR} - " \
+                  f"Port: {SR_PORT}"
+            logging.debug(msg)
+            return SR_ADDR, SR_PORT
 
     def send_command(self, command):
         # Sends the given command though the socket to the Subreflector
@@ -72,7 +98,7 @@ class MTCommand:
                         ("end_flag", ctypes.c_uint32)]
 
         size_of_struct = ctypes.sizeof(InterlockStructure())
-        print(size_of_struct)  # To see the size in output, as it changes often
+
         cmd_il, mode, elevation, reserve = command
         # self.seconds = 12345  # Temporary to have identical stamps to compare
         self.structure = InterlockStructure(
@@ -105,7 +131,6 @@ class MTCommand:
                         ("end_flag", ctypes.c_uint32)]
 
         size_of_struct = ctypes.sizeof(AsfStructure())
-        print(size_of_struct)  # To see the size in output, as it changes often
 
         cmd_as, mode, offset_dr_nr, offset_active, offset_value1, \
             offset_value2, offset_value3, offset_value4, offset_value5, \
@@ -148,7 +173,7 @@ class MTCommand:
                         ("end_flag", ctypes.c_uint32)]  # DWORD
 
         size_of_struct = ctypes.sizeof(InterlockStructure())
-        print(size_of_struct)  # To see the size in output, as it changes often
+
         cmd_hxpd, fashion, mode_lin, anzahl_lin, phase_lin, \
             p_xlin, p_ylin, p_zlin, v_lin, mode_rot, anzahl_rot, phase_rot, \
             p_xrot, p_yrot, p_zrot, v_rot, = command
@@ -174,7 +199,7 @@ class MTCommand:
                         ("end_flag", ctypes.c_uint32)]
 
         size_of_struct = ctypes.sizeof(InterlockStructure())
-        print(size_of_struct)  # To see the size in output, as it changes often
+
         cmd_polar, fashion, p_soll, v_cmd = command
         # self.seconds = 12345  # Temporary to have identical stamps to compare
         self.structure = InterlockStructure(
@@ -218,8 +243,7 @@ class MTCommand:
             assert self.structure is not None # Should be changed from above code
             logging.debug("Packing structure to bytes")
             packaged_ctype = self.pack(self.structure)
-            print("packaged_ctype")
-            print(packaged_ctype)
+            print('\n', packaged_ctype)
         except AssertionError as E:
             logging.exception("Structure was not set by relevant"
                               " command_to_struct method, nothing to package")
@@ -419,25 +443,30 @@ class MTCommand:
 
         self.encapsulate_command("hxpd", data)
 
-    def preset_abs_hxpd(self, p_xlin, p_ylin, p_zlin, v_lin,
-                        p_xrot, p_yrot, p_zrot, v_rot):
+    def preset_abs_hxpd(self,
+                        mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
+                        mode_rot, p_xrot, p_yrot, p_zrot, v_rot):
         try:
-            assert (p_xlin <= 230) and (p_xlin >= -230)
-            assert (p_ylin <= 180) and (p_ylin >= -180)
-            assert (p_zlin <= 50) and (p_zlin >= -200)
+            assert (p_xlin <= 225) and (p_xlin >= -225)
+            assert (p_ylin <= 175) and (p_ylin >= -175)
+            assert (p_zlin <= 45) and (p_zlin >= -195)
             # assert (v_lin <= 10) and (v_lin >= 0.001)
-            assert (p_xrot <= 1.01) and (p_xrot >= -1.01)
-            assert (p_yrot <= 1.01) and (p_yrot >= -1.01)
-            assert (p_zrot <= 1.01) and (p_zrot >= -1.01)
+            assert (p_xrot <= 0.95) and (p_xrot >= -0.95)
+            assert (p_yrot <= 0.95) and (p_yrot >= -0.95)
+            assert (p_zrot <= 0.95) and (p_zrot >= -0.95)
             # assert (v_rot <= 0.1) and (v_rot >= 0.00001)
+
+            assert mode_lin in [0, 3, 4, 7]
+            assert mode_rot in [0, 3, 4, 7]
+
         except AssertionError as E:
             logging.exception("Paramater(s) out of range")
             print(f"Assertion Error: {E}")
 
         cmd_hxpd = 101
         fashion = 2
-        mode_lin = 3
-        mode_rot = 3
+        # mode_lin = 3
+        # mode_rot = 3
         anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
@@ -446,25 +475,29 @@ class MTCommand:
 
         self.encapsulate_command("hxpd", data)
 
-    def preset_rel_hxpd(self, p_xlin, p_ylin, p_zlin, v_lin,
-                        p_xrot, p_yrot, p_zrot, v_rot):
+    def preset_rel_hxpd(self,
+                        mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
+                        mode_rot, p_xrot, p_yrot, p_zrot, v_rot):
         try:
-            assert (p_xlin <= 230) and (p_xlin >= -230)
-            assert (p_ylin <= 180) and (p_ylin >= -180)
-            assert (p_zlin <= 50) and (p_zlin >= -200)
+            assert (p_xlin <= 225) and (p_xlin >= -225)
+            assert (p_ylin <= 175) and (p_ylin >= -175)
+            assert (p_zlin <= 45) and (p_zlin >= -195)
             # assert (v_lin <= 10) and (v_lin >= 0.001)
-            assert (p_xrot <= 1.01) and (p_xrot >= -1.01)
-            assert (p_yrot <= 1.01) and (p_yrot >= -1.01)
-            assert (p_zrot <= 1.01) and (p_zrot >= -1.01)
+            assert (p_xrot <= 0.95) and (p_xrot >= -0.95)
+            assert (p_yrot <= 0.95) and (p_yrot >= -0.95)
+            assert (p_zrot <= 0.95) and (p_zrot >= -0.95)
             # assert (v_rot <= 0.1) and (v_rot >= 0.00001)
+
+            assert mode_lin in [0, 3, 4, 7]
+            assert mode_rot in [0, 3, 4, 7]
         except AssertionError as E:
             logging.exception("Paramater(s) out of range")
             print(f"Assertion Error: {E}")
 
         cmd_hxpd = 101
         fashion = 2
-        mode_lin = 4
-        mode_rot = 4
+        # mode_lin = 4
+        # mode_rot = 4
         anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
@@ -474,6 +507,15 @@ class MTCommand:
         self.encapsulate_command("hxpd", data)
 
     # # # # # Polarization Drive # # # # #
+    # TODO: Track_El needs to be added to polar, in docs. but what is it?
+    def ignore_polar(self):
+        cmd_polar = 102
+        fashion = 0
+        p_soll = 0
+        v_cmd = 0
+        data = (cmd_polar, fashion, p_soll, v_cmd)
+        self.encapsulate_command("polar", data)
+
     def activate_polar(self):
         cmd_polar = 102
         fashion = 2
