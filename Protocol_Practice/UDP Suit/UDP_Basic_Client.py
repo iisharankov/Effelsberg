@@ -10,9 +10,7 @@ def recv_msg(sock):
         print("Socket timed out, Try again")
 
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-    address = input("Specify the address (empty for local): ")
-    port = int(input("Specify port (***REMOVED*** is default for SR_program): "))
-    destination_address = (address, port)
+    destination_address = ('', 9999)
     sock.settimeout(4)
 
     sock.sendto(str.encode("\n"), destination_address)
