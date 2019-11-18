@@ -18,7 +18,7 @@ SDH_PORT = 1602  # Port where sdh output can be reached
 SR_MULTI = ***REMOVED***  # Port where subreflector_client.py outputs JSON
 LOCAL_ADDRESS = ''  # local IP
 MULTICAST_GROUP = '***REMOVED***'  # Multicast IP address
-USETESTSERVER = False
+USETESTSERVER = True
 
 class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     """
@@ -78,12 +78,34 @@ def start_connections(is_test_server):
         sr_client = StartupSubreflectorClient(is_test_server)
         sr_client.start_sr_client()
 
+        # sr_client = subreflector_client.SubreflectorClient(is_test_server)
+        # sr_client.main()EFFELSBERG:MTSUBREFLECTOR:OTHER:RESETCONNECTION
+
+
+
         logging.debug("Start UDP server instance")
         start_udp_server(sr_client, is_test_server)
+
+        # sr_client.main()
 
     except Exception as E:
         logging.exception("An exception occurred starting the threaded classes")
         raise E
+
+# def close_sr_client(sr_client):
+#     logging.debug("User initiated Subreflector connection reset")
+#     logging.debug(f"{threading.enumerate()}")
+#
+#     endsocketthread = threading.Thread(target=sr_client.end_connection)
+#     endsocketthread.start()
+#     endsocketthread.join()
+#
+#     logging.debug(f"{threading.enumerate()}")
+#
+#     #
+#     time.sleep(2)
+#     logging.debug("Starting connection again")
+#     sr_client.make_connection()
 
 
 class StartupSubreflectorClient:
@@ -99,6 +121,7 @@ class StartupSubreflectorClient:
         self.stop_threads = False
         self.srclient = subreflector_client.SubreflectorClient(is_test_server)
 
+
     def start_sr_client(self):
         """
         This method sets up a non-daemon thread to initiate the
@@ -113,7 +136,7 @@ class StartupSubreflectorClient:
 
             self.thread.daemon = False  # Demonize thread
             logging.debug(f"Threading set to {self.thread.daemon}.")
-
+            time.sleep(0.5)
             self.thread.start()
             logging.debug(f"Thread started successfully with "
                           f"thread ID: {self.thread.ident}")
@@ -141,7 +164,7 @@ class StartupSubreflectorClient:
         logging.debug(f"{threading.enumerate()}")
 
         #
-        time.sleep(2)
+        # time.sleep(2)
         logging.debug("Starting connection again")
         self.srclient.make_connection()
 
@@ -156,9 +179,11 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
     and forwarding it to mtcommand.py, which directly communicates to the
     subreflector
     """
+    def setup(self):
+        self.msg = []
 
     def handle(self):
-        logging.debug("#################################################")
+        logging.debug("#" * 50)
         logging.debug("Telnet: Message received from udp-telnet")
         # takes message, decodes to string and - all whitespace (by rejoining)
         telnet_msg = self.request[0].decode('utf-8')
@@ -166,18 +191,19 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
         # telnet_msg = ''.join(self.request[0].decode('utf-8').split())
 
         self.server.udp_parser_client.probe_command(telnet_msg)
-        msg = self.server.udp_parser_client.return_message()
-
+        self.msg = self.server.udp_parser_client.return_message()
+        self.msg.append('\nend')
         ###############################
         # print(self.server.helll)
 
-        logging.debug("Telnet: Message returned from CommandModule")
-
         logging.debug("Telnet: Setting up returnsocket")
         returnsocket = self.request[1]
-        returnsocket.sendto(msg.encode(), self.client_address)
-        logging.debug("Telnet: Message sent back to udp-telnet client")
-        logging.debug("#################################################")
+        logging.debug(f"All messages are: {self.msg}")
+
+        for each_msg in self.msg:
+            returnsocket.sendto(each_msg.encode(), self.client_address)
+
+        logging.debug("#" * 50)
 
 
 
@@ -194,7 +220,7 @@ class UDPCommandParser:
             instance of the StartupSubreflectorClient class
         """
         # Proper PEP-8 form has these defined here
-        self.msg = ''  # Message given back to user
+        self.msg = []  # Message given back to user
         self.obsprefix = None  # prefix found while parsing user command
         self.commandprefix = None  # prefix found while parsing user command
 
@@ -212,8 +238,7 @@ class UDPCommandParser:
 
     # # # # # General parsing section # # # # #
     def probe_command(self, usr_input):
-
-        self.msg = ''
+        self.msg = []
         self.obsprefix = None
         self.commandprefix = None
         logging.debug("Parser values reset")
@@ -233,32 +258,32 @@ class UDPCommandParser:
             msg = 'Structure of message should be ' \
                   '"EFFELSBERG:MTSUBREFLECTOR:[command]:[subcommand]".'
             logging.info(msg)
-            self.msg = msg
+            self.msg.append(msg)
         else:
 
             if telescope != "EFFELSBERG":
                 msg = 'Incorrect prefix (Command should start ' \
                       'with "EFFELSBERG")'
                 logging.info(msg)
-                self.msg = msg
+                self.msg.append(msg)
 
             elif subref != "MTSUBREFLECTOR":
                 msg = 'Incorrect prefix (Second entry of command should be ' \
                       '"MTSUBREFLECTOR")'
                 logging.info(msg)
-                self.msg = msg
+                self.msg.append(msg)
 
             elif not command:
                 logging.debug("User gave no command var input")
                 string = f'Command input must be given. The valid inputs are ' \
                          f'"INTERLOCK", "HEXAPOD", "ASF", "POLAR", and ' \
                          f'"OTHER".'
-                self.msg = string
+                self.msg.append(string)
 
             elif not subcommand:
                 msg = "No colon given after command entry. Add colon and " \
                       "leave subcommand empty for possible options"
-                self.msg = msg
+                self.msg.append(msg)
                 logging.debug(msg)
 
             # Calls respective method for the given command var
@@ -273,167 +298,238 @@ class UDPCommandParser:
             elif command == "OTHER":
                 self.other_controls(subcommand[0])
             elif command == "?":
-                self.msg = 'Usable types for interlock are: "ACTIVATE", ' \
-                           '"DEACTIVATE", "SET", "GET".'
+                self.msg.append('Usable types for interlock are: "ACTIVATE", '
+                                '"DEACTIVATE", "SET", "GET".')
             else:
                 logging.debug("User gave unrecognized command input")
                 string = f'{command} is not a valid input. The valid inputs' \
                          f' are "INTERLOCK", "HEXAPOD", "ASF", "POLAR", and ' \
                          f'"OTHER".'
-                self.msg = string
+                self.msg.append(string)
 
     # # # # # Interlock parsing section # # # # #
     def interlock_control(self, subcommand):
-
+        
         if "DEACTIVATE" in subcommand:
             logging.debug("interlock deactivate command given")
             self.mtcommand_client.deactivate_mt()
-            self.msg = "Interlock deactivated"
+            self.msg.append("Interlock deactivated")
+            self.poopp.append("erf")
         elif "ACTIVATE" in subcommand:
             logging.debug("interlock activate command given")
             self.mtcommand_client.activate_mt()
-            self.msg = "Interlock activated"
+            self.msg.append("Interlock activated")
+
         elif "SET" in subcommand:
 
-            # TODO lowest elevation is 8, should lower be set to that? ask.
             try:
                 just_command, value = subcommand.strip().split(" ", 1)
                 logging.debug(
                     f"Command given: {just_command}. Value given: {value}")
+                assert value >= 8 and value <= 90
+
+            except AssertionError:
+                logging.exception("User gave elevation outside of range")
+                self.msg.append(
+                    "The elevation given was outside the limits. Elevation "
+                    "must be between 8 degrees and 90 degrees inclusive.")
+
             except ValueError:
                 logging.exception("Number given couldn't be converted to float")
-                self.msg = "Number given after 'SET' couldn't be converted to" \
-                           " a float or none provided"
+                self.msg.append("Number given after 'SET' couldn't be "
+                                "converted to a float or none provided")
+
             else:
                 logging.debug("interlock set elevation command given")
                 self.mtcommand_client.set_mt_elevation(float(value))
-                self.msg = f"Interlock elevation set to {value} degrees"
+                self.msg.append(f"Interlock elevation set to {value} degrees")
+
         elif "GET" in subcommand:
             logging.debug("Interlock get elevation command given")
             elevation = self.mcast_receiver.get_elevation()
-            message = f"\n Interlock elevation: {elevation}"
-            self.msg = message
+
+            msg = f"\n Interlock elevation: {elevation}"
+            self.msg.append(msg)
 
         elif "?" in subcommand:
-            self.msg = 'Usable types for interlock are: "ACTIVATE", ' \
-                       '"DEACTIVATE", "SET", "GET".'
+            self.msg.append('Usable types for interlock are: "ACTIVATE", '
+                            '"DEACTIVATE", "SET", "GET".')
 
         else:
             logging.debug("User command fit no interlock option")
-            self.msg = 'message type not recognized. Correct types for ' \
-                       'interlock are: "ACTIVATE", "DEACTIVATE", "SET", "GET".'
+            self.msg.append('message type not recognized. Correct types for '
+                            'interlock are: "ACTIVATE", "DEACTIVATE", '
+                            '"SET", "GET".')
 
     # # # # # Hexapod parsing section # # # # #
     def hexapod_control(self, subcommand):
-        limits = \
-            " x_lin (1st val): between -225 and 225 \n" \
-            " y_lin (2nd val): between -175 and 175 \n" \
-            " z_lin (3rd val): between -195 and 45 \n" \
-            " x_rot, y_rot, z_r (5th-8th values): between -0.95 and 0.95"
+
+        # Long message that is near identical except variation of type
+        def helper_msg(type):
+            """
+            :param type: str
+                val: 'absolute' or 'relative
+            :return: str
+            """
+            assert type == 'absolute' or type == 'relative'
+
+            return \
+                f"One or more of the {type} values given go over the  " \
+                f"permitted limits. Please input smaller {type} values, or " \
+                f"use \"GETABS\" to read out current positions. Read Users " \
+                f"Manual for more information. Limits are: \n"\
+                " x_lin: between -225 and 225 \n" \
+                " y_lin: between -175 and 175 \n" \
+                " z_lin: between -195 and 45 \n" \
+                " x_rot, y_rot, z_r: between -0.95 and 0.95"
 
         if "GETABS" in subcommand:
             logging.debug("Hexapod get absolute position command given")
             positions = self.mcast_receiver.get_hexapod_positions()
-            message = f"\n hxpd_xlin: {positions[0]}," \
-                      f"\n hxpd_ylin: {positions[1]}," \
-                      f"\n hxpd_zlin: {positions[2]}," \
-                      f"\n hxpd_xrot: {positions[3]}," \
-                      f"\n hxpd_yrot: {positions[4]}," \
-                      f"\n hxpd_zrot: {positions[5]}"
-            self.msg = message
+            msg = f"\n hxpd_xlin: {positions[0]}," \
+                  f"\n hxpd_ylin: {positions[1]}," \
+                  f"\n hxpd_zlin: {positions[2]}," \
+                  f"\n hxpd_xrot: {positions[3]}," \
+                  f"\n hxpd_yrot: {positions[4]}," \
+                  f"\n hxpd_zrot: {positions[5]}"
+            self.msg.append(msg)
 
-        elif "SETABS" in subcommand or "SETREL" in subcommand:
+        elif subcommand[:9] in ["SETABSLIN", "SETRELLIN",
+                                "SETABSROT", "SETRELROT"]:
             try:
-                logging.debug("Parsing command string to get entries to set to")
-                values = subcommand[6:].strip().split(" ")
+                if ',' in subcommand:
+                    self.msg.append("Do not put commas between numbers")
+
+                values = subcommand[9:].strip().replace(',', '').split(" ")
                 new_val = [float(i) for i in values]  # change str to float
-                assert len(new_val) == 8  # Make sure there's exactly 8 entries
+                logging.debug(f'new_vals are: {new_val}')
+
+                assert len(new_val) == 4  # Make sure there's exactly 4 entries
 
             except AssertionError:
                 msg = "Assertion error. Improper number in parameters or " \
-                      "wrong type. SETABS/SETREL takes 8 entries"
-                self.msg = msg
+                      "wrong type. SETABS/SETREL takes 4 entries"
+                self.msg.append(msg)
                 logging.exception(msg)
 
             except ValueError as E:
-                msg = "Error converting entries to floats. Other " \
-                      "characters may be present"
+                msg = f"Error converting entries to floats. Other " \
+                      f"characters may be present. Error: {E}"
                 logging.exception(msg)
-                print(msg, E)
+                self.msg.append(msg)
 
             else:
-                if "SETABS" in subcommand:
-                    logging.debug("Hexapod set absolute position command given")
+                if "SETABSLIN" in subcommand:
+                    logging.debug("Hexapod set linear absolute command given")
 
                     try:
                         assert (new_val[0] <= 225) and (new_val[0] >= -225)
                         assert (new_val[1] <= 175) and (new_val[1] >= -175)
                         assert (new_val[2] <= 45) and (new_val[2] >= -195)
-                        assert (new_val[4] <= 0.95) and (new_val[4] >= -0.95)
-                        assert (new_val[5] <= 0.95) and (new_val[5] >= -0.95)
-                        assert (new_val[6] <= 0.95) and (new_val[6] >= -0.95)
+                        assert (new_val[3] <= 10) and (new_val[3] >= 0.001)
 
-                    except AssertionError as E:
-                        self.msg = \
-                            f"The absolute values given go over the " \
-                            f"permitted limits. Please input smaller " \
-                            f"absolute values, or use \"GETABS\" to read " \
-                            f"out current positions. Read Users Manual" \
-                            f"for more information. Limits are: \n" + limits
+                    except AssertionError:
 
-                        logging.exception("Relative inputs go over saftey "
+                        self.msg.append(helper_msg('absolute'))
+                        logging.exception("Absolute inputs go over saftey "
                                           "limits set on Hexapod. Aborted")
 
                     else:
-                        self.mtcommand_client.preset_abs_hxpd(
-                            new_val[0], new_val[1], new_val[2], new_val[3],
-                            new_val[4], new_val[5], new_val[6], new_val[7])
+                        self.mtcommand_client.preset_abs_lin_hxpd(
+                            new_val[0], new_val[1], new_val[2], new_val[3])
+                        msg = f"Set absolute values for linear drives on " \
+                              f"hexapod to \n"\
+                              f" xlin: {new_val[0]}, ylin: {new_val[1]},"\
+                              f" zlin: {new_val[2]}, v_lin: {new_val[3]}"
+                        self.msg.append(msg)
 
-                        self.msg = \
-                            "Set absolute values for hexapod to \n" \
-                            f" xlin: {new_val[0]}, ylin: {new_val[1]}," \
-                            f" zlin: {new_val[2]}, v_lin: {new_val[3]} \n" \
-                            f" xrot: {new_val[4]}, yrot: {new_val[5]}," \
-                            f" zrot: {new_val[6]}, v_rot: {new_val[7]}"
+                elif "SETABSROT" in subcommand:
+                    logging.debug("Hexapod set absolute rotational"
+                                  " command given")
 
-                elif "SETREL" in subcommand:
-                    logging.debug("Hexapod set relative position command given")
-                    positions = self.mcast_receiver.get_hexapod_positions()
-                    new_xlin = positions[0] + new_val[0]
-                    new_ylin = positions[1] + new_val[1]
-                    new_zlin = positions[2] + new_val[2]
-                    new_xrot = positions[4] + new_val[4]
-                    new_yrot = positions[5] + new_val[5]
-                    new_zrot = positions[6] + new_val[6]
+                    try:
+                        assert (new_val[0] <= 0.95) and (new_val[0] >= -0.95)
+                        assert (new_val[1] <= 0.95) and (new_val[1] >= -0.95)
+                        assert (new_val[2] <= 0.95) and (new_val[2] >= -0.95)
+                        assert (new_val[3] <= 0.10) and (new_val[3] >= 0.001)
+
+                    except AssertionError:
+                        self.msg.append(helper_msg('absolute'))
+                        logging.exception("Absolute inputs go over saftey "
+                                          "limits set on Hexapod. Aborted")
+
+                    else:
+                        self.mtcommand_client.preset_abs_rot_hxpd(
+                            new_val[0], new_val[1], new_val[2], new_val[3])
+                        msg = f"Set absolute values for rotational drives on " \
+                              f"hexapod to \n" \
+                              f" xrot: {new_val[0]}, yrot: {new_val[1]}," \
+                              f" zrot: {new_val[2]}, v_rot: {new_val[3]}"
+                        self.msg.append(msg)
+                        logging.debug("Msg appended")
+
+
+                elif "SETRELLIN" in subcommand:
+                    logging.debug("Hexapod set relative linear command given")
+                    cur_vals = self.mcast_receiver.get_hexapod_positions()
+                    new_xlin = cur_vals[0] + new_val[0]
+                    new_ylin = cur_vals[1] + new_val[1]
+                    new_zlin = cur_vals[2] + new_val[2]
+                    velocity = new_val[4]
 
                     try:
                         assert (new_xlin <= 225) and (new_xlin >= -225)
                         assert (new_ylin <= 175) and (new_ylin >= -175)
                         assert (new_zlin <= 45) and (new_zlin >= -195)
-                        assert (new_xrot <= 0.95) and (new_xrot >= -0.95)
-                        assert (new_yrot <= 0.95) and (new_yrot >= -0.95)
-                        assert (new_zrot <= 0.95) and (new_zrot >= -0.95)
-                    except AssertionError as E:
-                        msg = f"The relative values given added to the " \
-                              f"current hexapod values go over the permitted " \
-                              f"limits. Please input smaller relative " \
-                              f"values, or use \"GETABS\" to read out " \
-                              f"current positions. Read Users Manual for more" \
-                              f"information. Limits are: \n" + limits
-                        self.msg = msg
+                        assert (velocity <= 10) and (velocity >= 0.001)
+
+                    except AssertionError:
+                        self.msg.append(helper_msg('relative'))
                         logging.exception("Relative inputs given go over saftey"
                                           " limits set on Hexapod. Aborted")
                     else:
-                        self.mtcommand_client.preset_abs_hxpd(
-                            new_xlin, new_ylin, new_zlin, new_val[3],
-                            new_xrot, new_yrot, new_zrot, new_val[7])
+                        self.mtcommand_client.preset_abs_lin_hxpd(
+                            new_xlin, new_ylin, new_zlin, velocity)
 
-                        self.msg = \
-                            "adding relative values for hexapod: \n" \
-                            f" xlin: {new_val[0]}, ylin: {new_val[1]}," \
-                            f" zlin: {new_val[2]}, v_lin: {new_val[3]} \n" \
-                            f" xrot: {new_val[4]}, yrot: {new_val[5]}," \
-                            f" zrot: {new_val[6]}, v_rot: {new_val[7]}"
+                        self.msg.append(
+                            "added relative values for linear drives on "
+                            "hexapod. Moving to values: \n"
+                            f" xlin: {new_xlin}, ylin: {new_ylin},"
+                            f" zlin: {new_zlin}, v_lin: {velocity}")
+
+                elif "SETRELROT" in subcommand:
+                    logging.debug("Hexapod set relative rotational "
+                                  "command given")
+                    positions = self.mcast_receiver.get_hexapod_positions()
+                    new_xrot = positions[4] + new_val[0]
+                    new_yrot = positions[5] + new_val[1]
+                    new_zrot = positions[6] + new_val[2]
+                    velocity = new_val[4]
+
+                    try:
+                        assert (new_xrot <= 0.95) and (new_xrot >= -0.95)
+                        assert (new_yrot <= 0.95) and (new_yrot >= -0.95)
+                        assert (new_zrot <= 0.95) and (new_zrot >= -0.95)
+                        assert (velocity <= 0.10) and (velocity >= 0.001)
+
+                    except AssertionError:
+                        self.msg.append(helper_msg('relative'))
+                        logging.exception("Relative inputs given go over saftey"
+                                          " limits set on Hexapod. Aborted")
+                    else:
+                        self.mtcommand_client.preset_abs_rot_hxpd(
+                            new_xrot, new_yrot, new_zrot, velocity)
+
+                        self.msg.append(
+                            "added relative values for rotational drive on "
+                            "hexapod. Moving to values: \n"
+                            f" xrot: {new_xrot}, yrot: {new_yrot},"
+                            f" zrot: {new_zrot}, v_rot: {velocity}")
+                else:
+                    # Safety, but should be unreachable
+                    self.msg.append(
+                        'Subcommand not recognized. Possible entries are: '
+                        '"SETABSLIN", "SETABSREL", "SETRELLIN", or "SETRELROT"')
 
         elif "DEACTIVATE" in subcommand:
             logging.debug("Hexapod deactivation command given")
@@ -451,15 +547,17 @@ class UDPCommandParser:
             logging.debug("Hexapod acknowledge error command given")
             self.mtcommand_client.acknowledge_error_on_hxpd()
         elif "?" in subcommand:
-            self.msg = 'Usable types for hexapod are: "GETABS", "SETABS", ' \
-                       '"SETREL", "ACTIVATE", "DEACTIVATE", ' \
-                       '"STOP", "INTERLOCK", "ERROR".'
+            self.msg.append(
+                'Usable types for hexapod are: '
+                '"GETABS", "SETABSLIN", "SETABSREL", "SETRELLIN", "SETRELROT",'
+                '"ACTIVATE", "DEACTIVATE", "STOP", "INTERLOCK", "ERROR".')
 
         else:
             logging.debug("User command fit no hexapod option")
-            self.msg = 'message type not recognized. Correct types for ' \
-                       'hexapod are: "GETABS", "SETABS", "SETREL", ' \
-                       '"ACTIVATE", "DEACTIVATE", "STOP", "INTERLOCK", "ERROR".'
+            self.msg.append(
+                'message type not recognized. Correct types for hexapod are: '
+                '"GETABS", "SETABSLIN", "SETABSREL", "SETRELLIN", "SETRELROT",'
+                '"ACTIVATE", "DEACTIVATE", "STOP", "INTERLOCK", "ERROR".')
 
     # # # # # Polar parsing section # # # # #
 
@@ -490,13 +588,15 @@ class UDPCommandParser:
             logging.debug("ASF set offset command given")
             self.mtcommand_client.set_offset_asf()
         elif "?" in subcommand:
-            self.msg = 'Usable types for asf are: "IGNORE", "DEACTIVATE", ' \
-                       '"REST", "ERROR", "STOP", "PRESET", "AUTO", "OFFSET".'
+            self.msg.append(
+                'Usable types for asf are: "IGNORE", "DEACTIVATE", '
+                '"REST", "ERROR", "STOP", "PRESET", "AUTO", "OFFSET".')
         else:
             logging.debug("User command fit no ASF option")
-            self.msg = 'message type not recognized. Correct types for asf' \
-                       'are: "IGNORE", "DEACTIVATE", "REST", "ERROR", "STOP",' \
-                       '"PRESET", "AUTO", "OFFSET".'
+            self.msg.append(
+                'message type not recognized. Correct types for asf'
+                'are: "IGNORE", "DEACTIVATE", "REST", "ERROR", "STOP",'
+                '"PRESET", "AUTO", "OFFSET".')
 
     # # # # # Polar parsing section # # # # #
     def polar_control(self, subcommand):
@@ -504,8 +604,8 @@ class UDPCommandParser:
         if "GETABS" in subcommand:
             logging.debug("Polar get absolute positions command given")
             positions = self.mcast_receiver.get_polar_position()
-            message = f"\n P_soll[deg]: {positions[0]},"
-            self.msg = message
+            msg = f"\n P_soll[deg]: {positions[0]},"
+            self.msg.append(msg)
 
         elif "IGNORE" in subcommand:
             logging.debug("Polar ignore command given")
@@ -542,15 +642,16 @@ class UDPCommandParser:
             self.mtcommand_client.preset_rel_polar(p_soll, v_cmd)
 
         elif "?" in subcommand:
-            self.msg = 'Usable types for polar are: "GETABS", "SETABS", ' \
-                       '"SETREL", "IGNORE", "ACTIVATE", "DEACTIVATE", ' \
-                       '"STOP", "ERROR".'
+            self.msg.append(
+                'Usable types for polar are: "GETABS", "SETABS", "SETREL", '
+                '"IGNORE", "ACTIVATE", "DEACTIVATE", "STOP", "ERROR".')
 
         else:
             logging.debug("User command fit no polar option")
-            self.msg = 'message type not recognized. Correct types for polar' \
-                       'are: "GETABS", "SETABS", "SETREL", "IGNORE", ' \
-                       '"ACTIVATE", "DEACTIVATE", "STOP", "ERROR".'
+            self.msg.append(
+                'message type not recognized. Correct types for polar are: '
+                '"GETABS", "SETABS", "SETREL", "IGNORE", "ACTIVATE", '
+                '"DEACTIVATE", "STOP", "ERROR".')
 
     # # # # # Other Controls # # # # #
     def other_controls(self, subcommand):
@@ -558,21 +659,22 @@ class UDPCommandParser:
         if "RESETCONNECTION" in subcommand:
             logging.debug("Other command given to reset connection to server")
             self.reset_connections()   #TODO Fix this threading nuance
-            self.msg = "Connection reset"
 
         elif "?" in subcommand:
-            self.msg = 'Usable types for other are: "RESETCONNECTION".'
+            self.msg.append('Usable types for other are: "RESETCONNECTION".')
 
         else:
             logging.debug("User command fit no other option")
-            self.msg = 'message type not recognized. Correct types for other' \
-                       'are: "RESETCONNECTION".'
+            self.msg.append(
+                'message type not recognized. Correct types for other'
+                'are: "RESETCONNECTION".')
 
     # # # # # Reset Connections # # # # #
     def reset_connections(self):
         logging.debug("User initiated connection reset to server")
         self.sr_client.close_sr_client()
-        self.msg = "Connections reset"
+        # close_sr_client(self.sr_client)
+        self.msg.append("Connection reset successfully")
 
         #
         # if srclient.srclient.sock.fileno() == -1:
@@ -751,7 +853,7 @@ class MulticastReceiver:
 if __name__ == "__main__":
     logging.basicConfig(filename='debug/subreflector_program_debug.log',
                         filemode='w', level=logging.DEBUG,
-                        format='%(asctime)s - %(levelname)s - %(module)s '
+                        format='%(asctime)s - %(levelname)s - %(thread)d - %(module)s '
                                '- %(funcName)s- %(message)s',
                         datefmt='%d-%b-%y %H:%M:%S')
 
