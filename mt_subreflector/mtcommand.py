@@ -369,14 +369,14 @@ class MTCommand:
         cmd_hxpd = 101
         fashion = 1
         mode_lin = 0
-        p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
+        xlin, ylin, zlin, v_lin = 0, 0, 0, 0
         mode_rot = 0
-        p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+        xrot, yrot, zrot, v_rot = 0, 0, 0, 0
         anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
-                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
+                mode_lin, anzahl_lin, phase_lin, xlin, ylin, zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, xrot, yrot, zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
 
@@ -384,30 +384,30 @@ class MTCommand:
         cmd_hxpd = 101
         fashion = 2
         mode_lin = 0
-        p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
+        xlin, ylin, zlin, v_lin = 0, 0, 0, 0
         mode_rot = 0
-        p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+        xrot, yrot, zrot, v_rot = 0, 0, 0, 0
         anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
-                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
+                mode_lin, anzahl_lin, phase_lin, xlin, ylin, zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, xrot, yrot, zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
 
 
-    def stop_hxpd(self):
+    def stohxpd(self):
         cmd_hxpd = 101
         fashion = 7
         mode_lin = 0
-        p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
+        xlin, ylin, zlin, v_lin = 0, 0, 0, 0
         mode_rot = 0
-        p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+        xrot, yrot, zrot, v_rot = 0, 0, 0, 0
         anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
-                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
+                mode_lin, anzahl_lin, phase_lin, xlin, ylin, zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, xrot, yrot, zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
 
@@ -415,99 +415,82 @@ class MTCommand:
         cmd_hxpd = 101
         fashion = 14
         mode_lin = 0
-        p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
+        xlin, ylin, zlin, v_lin = 0, 0, 0, 0
         mode_rot = 0
-        p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+        xrot, yrot, zrot, v_rot = 0, 0, 0, 0
         anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
-                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
+                mode_lin, anzahl_lin, phase_lin, xlin, ylin, zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, xrot, yrot, zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
-
-
 
     def acknowledge_error_on_hxpd(self):
         cmd_hxpd = 101
         fashion = 15
         mode_lin = 0
-        p_xlin, p_ylin, p_zlin, v_lin = 0, 0, 0, 0
+        xlin, ylin, zlin, v_lin = 0, 0, 0, 0
         mode_rot = 0
-        p_xrot, p_yrot, p_zrot, v_rot = 0, 0, 0, 0
+        xrot, yrot, zrot, v_rot = 0, 0, 0, 0
         anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
         data = (cmd_hxpd, fashion,
-                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
+                mode_lin, anzahl_lin, phase_lin, xlin, ylin, zlin, v_lin,
+                mode_rot, anzahl_rot, phase_rot, xrot, yrot, zrot, v_rot)
 
         self.encapsulate_command("hxpd", data)
 
-    def preset_abs_hxpd(self,
-                        mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                        mode_rot, p_xrot, p_yrot, p_zrot, v_rot):
+    def preset_abs_lin_hxpd(self, xlin, ylin, zlin, v_lin):
         try:
-            assert (p_xlin <= 225) and (p_xlin >= -225)
-            assert (p_ylin <= 175) and (p_ylin >= -175)
-            assert (p_zlin <= 45) and (p_zlin >= -195)
-            # assert (v_lin <= 10) and (v_lin >= 0.001)
-            assert (p_xrot <= 0.95) and (p_xrot >= -0.95)
-            assert (p_yrot <= 0.95) and (p_yrot >= -0.95)
-            assert (p_zrot <= 0.95) and (p_zrot >= -0.95)
-            # assert (v_rot <= 0.1) and (v_rot >= 0.00001)
-
-            assert mode_lin in [0, 3, 4, 7]
-            assert mode_rot in [0, 3, 4, 7]
+            assert (xlin <= 225) and (xlin >= -225)
+            assert (ylin <= 175) and (ylin >= -175)
+            assert (zlin <= 45) and (zlin >= -195)
+            assert (v_lin <= 10) and (v_lin >= 0.001)
 
         except AssertionError as E:
             logging.exception("Paramater(s) out of range")
             print(f"Assertion Error: {E}")
+        else:
+            cmd_hxpd = 101
+            fashion = 2
+            mode_lin = 3
+            mode_rot = 0
+            anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
-        cmd_hxpd = 101
-        fashion = 2
-        # mode_lin = 3
-        # mode_rot = 3
-        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
+            data = (cmd_hxpd, fashion,
+                    mode_lin, anzahl_lin, phase_lin, xlin, ylin, zlin, v_lin,
+                    mode_rot, anzahl_rot, phase_rot, 0, 0, 0, 0)
 
-        data = (cmd_hxpd, fashion,
-                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
+            self.encapsulate_command("hxpd", data)
 
-        self.encapsulate_command("hxpd", data)
-
-    def preset_rel_hxpd(self,
-                        mode_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                        mode_rot, p_xrot, p_yrot, p_zrot, v_rot):
+    def preset_abs_rot_hxpd(self, xrot, yrot, zrot, v_rot):
         try:
-            assert (p_xlin <= 225) and (p_xlin >= -225)
-            assert (p_ylin <= 175) and (p_ylin >= -175)
-            assert (p_zlin <= 45) and (p_zlin >= -195)
-            # assert (v_lin <= 10) and (v_lin >= 0.001)
-            assert (p_xrot <= 0.95) and (p_xrot >= -0.95)
-            assert (p_yrot <= 0.95) and (p_yrot >= -0.95)
-            assert (p_zrot <= 0.95) and (p_zrot >= -0.95)
-            # assert (v_rot <= 0.1) and (v_rot >= 0.00001)
+            assert (xrot <= 0.95) and (xrot >= -0.95)
+            assert (yrot <= 0.95) and (yrot >= -0.95)
+            assert (zrot <= 0.95) and (zrot >= -0.95)
+            assert (v_rot <= 0.1) and (v_rot >= 0.000_01)
 
-            assert mode_lin in [0, 3, 4, 7]
-            assert mode_rot in [0, 3, 4, 7]
+
         except AssertionError as E:
             logging.exception("Paramater(s) out of range")
             print(f"Assertion Error: {E}")
+        else:
+            cmd_hxpd = 101
+            fashion = 2
+            mode_lin = 0
+            mode_rot = 3
+            anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
-        cmd_hxpd = 101
-        fashion = 2
-        # mode_lin = 4
-        # mode_rot = 4
-        anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
+            data = (cmd_hxpd, fashion,
+                    mode_lin, anzahl_lin, phase_lin, 0, 0, 0, 0,
+                    mode_rot, anzahl_rot, phase_rot, xrot, yrot, zrot,
+                    v_rot)
 
-        data = (cmd_hxpd, fashion,
-                mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
-                mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot)
+            self.encapsulate_command("hxpd", data)
 
-        self.encapsulate_command("hxpd", data)
-
-    # # # # # Polarization Drive # # # # #
-    # TODO: Track_El needs to be added to polar, in docs. but what is it?
+        # # # # # Polarization Drive # # # # #
+    # TODO: Track_El needs to be added to polar, in docs. but what is it for ?
     def ignore_polar(self):
         cmd_polar = 102
         fashion = 0
@@ -549,24 +532,34 @@ class MTCommand:
         self.encapsulate_command("polar", data)
 
     def preset_abs_polar(self, p_soll, v_cmd):
-        assert (p_soll <= 195) and (p_soll >= -195)
-        # assert (v_cmd <= 3) and (v_cmd >= 0.000_01)
+        try:
+            assert (p_soll <= 195) and (p_soll >= -195)
+            assert (v_cmd <= 3) and (v_cmd >= 0.000_01)
 
-        cmd_polar = 102
-        fashion = 3
+        except AssertionError:
+            logging.exception("parametrs for polar outside limits")
 
-        data = (cmd_polar, fashion, p_soll, v_cmd)
-        self.encapsulate_command("polar", data)
+        else:
+            cmd_polar = 102
+            fashion = 4
+
+            data = (cmd_polar, fashion, p_soll, v_cmd)
+            self.encapsulate_command("polar", data)
 
     def preset_rel_polar(self, p_soll, v_cmd):
-        assert (p_soll <= 195) and (p_soll >= -195)
-        assert (v_cmd <= 3) and (v_cmd >= 0.000_01)
+        try:
+            assert (p_soll <= 195) and (p_soll >= -195)
+            assert (v_cmd <= 3) and (v_cmd >= 0.000_01)
 
-        cmd_polar = 102
-        fashion = 4
+        except AssertionError:
+            logging.exception("parametrs for polar outside limits")
 
-        data = (cmd_polar, fashion, p_soll, v_cmd)
-        self.encapsulate_command("polar", data)
+        else:
+            cmd_polar = 102
+            fashion = 4
+
+            data = (cmd_polar, fashion, p_soll, v_cmd)
+            self.encapsulate_command("polar", data)
     
     # # # # # # # # # # # # # # # #
     def irig_b_system(self, fashion_value, time_offset_mode=3):
@@ -575,13 +568,13 @@ class MTCommand:
         except Exception as E:
             print(E)
             print("Error, time_offset_mode (second entry) should be 3 or 4")
-
-        cmd_time = 107
-        fashion = fashion_value
-        time_offset = time_offset_mode
-        reserve = 0.0
-        data = (cmd_time, fashion, time_offset, reserve)
-        self.encapsulate_command('unknown', data)
+        else:
+            cmd_time = 107
+            fashion = fashion_value
+            time_offset = time_offset_mode
+            reserve = 0.0
+            data = (cmd_time, fashion, time_offset, reserve)
+            self.encapsulate_command('unknown', data)
 
     def close(self):
         self.sock.close()

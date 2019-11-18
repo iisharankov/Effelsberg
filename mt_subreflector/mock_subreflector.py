@@ -51,12 +51,15 @@ def receiver():
         sock.listen(2)
 
         while True:
+            time.sleep(1)
             # listen for incoming connections (server mode)
             # with one connection a time
             connection, client_address = sock.accept()
 
             # receive the data in small chunks and print it
             while True:
+                time.sleep(1)
+
                 pass
                 # data = connection.recv(buffer_size)
                 # mt = mtcommand.MTCommand(True)
