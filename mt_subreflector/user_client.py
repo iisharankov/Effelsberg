@@ -4,8 +4,17 @@ import time
 def recv_msg(sock):
     # Receive data from the server
     try:
-        received = sock.recv(***REMOVED***)
-        print("Received: {}".format(received.decode('utf-8')))
+        # received = sock.recv(***REMOVED***)
+        # print("Received: {}".format(received.decode('utf-8')))
+        recieved = None
+        while True:
+            received = sock.recv(***REMOVED***)
+            time.sleep(0.1)
+            if received != b'\nend':
+                print("Received: {}".format(received.decode('utf-8')))
+            else:
+                break
+
     except socket.timeout:
         print("Socket timed out, Try again")
 
@@ -15,6 +24,8 @@ def recv_msg(sock):
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
     sock.settimeout(4)
 
+    # This block offers user to choose the IP/Port combo, and makes sure a
+    # connection is made to the specified combo
     address, port = None, None
     while port is None:
         try:
