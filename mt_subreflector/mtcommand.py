@@ -56,6 +56,9 @@ class MTCommand:
         except ConnectionError or BrokenPipeError as E:
             self.msg = f"There was a socket error: {E}"
 
+        # else:
+        #     print(self.unpack())
+
 
     @staticmethod
     def pack(ctype_instance):
@@ -149,7 +152,7 @@ class MTCommand:
     def hxpd_command_to_struct(self, command):
 
         # Correct class structure for given command
-        class InterlockStructure(ctypes.Structure):
+        class HexapodStructure(ctypes.Structure):
             _pack_ = 1
             _fields_ = [("start_flag", ctypes.c_uint32),
                         ("message_length", ctypes.c_int32),
@@ -172,13 +175,13 @@ class MTCommand:
                         ("v_rot", ctypes.c_double),
                         ("end_flag", ctypes.c_uint32)]  # DWORD
 
-        size_of_struct = ctypes.sizeof(InterlockStructure())
+        size_of_struct = ctypes.sizeof(HexapodStructure())
 
         cmd_hxpd, fashion, mode_lin, anzahl_lin, phase_lin, \
             p_xlin, p_ylin, p_zlin, v_lin, mode_rot, anzahl_rot, phase_rot, \
             p_xrot, p_yrot, p_zrot, v_rot, = command
 
-        self.structure = InterlockStructure(
+        self.structure = HexapodStructure(
             self.startflag, size_of_struct, self.seconds, cmd_hxpd, fashion,
             mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
             mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot,
@@ -187,7 +190,7 @@ class MTCommand:
     def polar_command_to_struct(self, command):
 
         # Correct class structure for given command
-        class InterlockStructure(ctypes.Structure):
+        class PolarStructure(ctypes.Structure):
             _pack_ = 1
             _fields_ = [("start_flag", ctypes.c_uint32),
                         ("message_length", ctypes.c_int32),
@@ -198,11 +201,11 @@ class MTCommand:
                         ("v_cmd", ctypes.c_double),
                         ("end_flag", ctypes.c_uint32)]
 
-        size_of_struct = ctypes.sizeof(InterlockStructure())
+        size_of_struct = ctypes.sizeof(PolarStructure())
 
         cmd_polar, fashion, p_soll, v_cmd = command
         # self.seconds = 12345  # Temporary to have identical stamps to compare
-        self.structure = InterlockStructure(
+        self.structure = PolarStructure(
             self.startflag, size_of_struct, self.seconds,
             cmd_polar, fashion, p_soll, v_cmd, self.endflag)
 
@@ -443,10 +446,10 @@ class MTCommand:
 
     def preset_abs_lin_hxpd(self, xlin, ylin, zlin, v_lin):
         try:
-            assert (xlin <= 225) and (xlin >= -225)
-            assert (ylin <= 175) and (ylin >= -175)
-            assert (zlin <= 45) and (zlin >= -195)
-            assert (v_lin <= 10) and (v_lin >= 0.001)
+            assert -225 <= xlin <= 225
+            assert -175 <= ylin <= 175
+            assert -195 <= zlin <= 45
+            assert 0.001 <= v_lin <= 10
 
         except AssertionError as E:
             logging.exception("Paramater(s) out of range")
@@ -466,10 +469,10 @@ class MTCommand:
 
     def preset_abs_rot_hxpd(self, xrot, yrot, zrot, v_rot):
         try:
-            assert (xrot <= 0.95) and (xrot >= -0.95)
-            assert (yrot <= 0.95) and (yrot >= -0.95)
-            assert (zrot <= 0.95) and (zrot >= -0.95)
-            assert (v_rot <= 0.1) and (v_rot >= 0.000_01)
+            assert -0.95 <= xrot <= 0.95
+            assert -0.95 <= yrot <= 0.95
+            assert -0.95 <= zrot <= 0.95
+            assert 0.000_01 <= v_rot <= 0.1
 
 
         except AssertionError as E:
@@ -533,8 +536,8 @@ class MTCommand:
 
     def preset_abs_polar(self, p_soll, v_cmd):
         try:
-            assert (p_soll <= 195) and (p_soll >= -195)
-            assert (v_cmd <= 3) and (v_cmd >= 0.000_01)
+            assert 195 >= p_soll >= -195
+            assert 3 >= v_cmd >= 0.000_01
 
         except AssertionError:
             logging.exception("parametrs for polar outside limits")
@@ -547,9 +550,10 @@ class MTCommand:
             self.encapsulate_command("polar", data)
 
     def preset_rel_polar(self, p_soll, v_cmd):
+        # Todo do same as hexapod and only have absolute
         try:
-            assert (p_soll <= 195) and (p_soll >= -195)
-            assert (v_cmd <= 3) and (v_cmd >= 0.000_01)
+            assert 195 >= p_soll >= -195
+            assert 3 >= v_cmd >= 0.000_01
 
         except AssertionError:
             logging.exception("parametrs for polar outside limits")
