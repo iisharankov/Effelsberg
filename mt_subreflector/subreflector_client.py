@@ -2,6 +2,7 @@
 
 import time
 import json
+import queue
 import socket
 import struct
 import logging
@@ -21,6 +22,7 @@ class SubreflectorClient:
         self.chosen_server = self.use_test_server(use_test_server)
         self.connection_flag = False
         self.starttime = time.time()
+        self.mcast_queue = queue.LifoQueue(maxsize=10)
 
     def main(self):
         self.activate_multicasting()
@@ -32,6 +34,11 @@ class SubreflectorClient:
         self.multicast_sock.setsockopt(socket.IPPROTO_IP,
                                        socket.IP_MULTICAST_TTL, 1)
 
+        logging.debug("Starting Multicast queue reader in thread")
+        t = threading.Thread(target=self.send_mcast, args=(), name="Queue_Mcast")
+        t.deamon = True
+        t.start()
+
     def use_test_server(self, test_server):
         """
         Swaps real SR address for local if instance of class is needed for tests
@@ -41,13 +48,13 @@ class SubreflectorClient:
         """
 
         if test_server:
-            msg = "Connected to local subreflector in MockSubreflector.py"
+            msg = "Connecting to local subreflector in MockSubreflector.py"
             print(msg)
             logging.debug(msg)
             return LOCAL_ADDR, SR_PORT
 
         else:
-            msg = f"Connected to mt_subreflector. IP: {SR_ADDR} - " \
+            msg = f"Connecting to mt_subreflector. IP: {SR_ADDR} - " \
                   f"Port: {SR_PORT}"
             print(msg)
             logging.debug(msg)
@@ -82,6 +89,13 @@ class SubreflectorClient:
             except ConnectionError as E:
                 logging.exception("Error connecting to server. May not be found")
                 print(f"Could not connect to the Subreflector: {E}")
+
+    def send_mcast(self):
+        templock = threading.Lock()
+        while True:
+            with templock:
+                status_message = self.mcast_queue.get()
+                self.multicast_sock.sendto(status_message, MULTICAST)
 
     def receive_data(self, sock):
         """
@@ -158,11 +172,20 @@ class SubreflectorClient:
                     print(f"\rmessage sent x{count}", end='')
                     # if count == 109:
                     #     print(time.time() -self.starttime)
-                    status_message = self.package_msg(full_msg)
-                    # print("    ", status_message["status-data-active-surface"] \
-                    #           ["Elevation-angle[deg]"])
-                    self.multicast_sock.sendto(status_message, MULTICAST)
-                    status_message = None
+
+                    # this block is just precautionary to avoid loops in queue
+                    try:
+                        assert not self.mcast_queue.full()
+
+                        if self.mcast_queue.qsize() > 7:
+                            # In case queue starts to reach max size, clear it
+                            # and then add the queue object
+                            self.mcast_queue.queue.clear()
+
+                        self.mcast_queue.put(self.package_msg(full_msg))
+
+                    except AssertionError:
+                        logging.exception("Queue filled up!")
 
             finally:
                 with self.lock:

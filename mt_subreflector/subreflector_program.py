@@ -81,12 +81,8 @@ def start_connections(is_test_server):
         # sr_client = subreflector_client.SubreflectorClient(is_test_server)
         # sr_client.main()EFFELSBERG:MTSUBREFLECTOR:OTHER:RESETCONNECTION
 
-
-
         logging.debug("Start UDP server instance")
         start_udp_server(sr_client, is_test_server)
-
-        # sr_client.main()
 
     except Exception as E:
         logging.exception("An exception occurred starting the threaded classes")
@@ -121,7 +117,6 @@ class StartupSubreflectorClient:
         self.stop_threads = False
         self.srclient = subreflector_client.SubreflectorClient(is_test_server)
 
-
     def start_sr_client(self):
         """
         This method sets up a non-daemon thread to initiate the
@@ -140,7 +135,7 @@ class StartupSubreflectorClient:
             self.thread.start()
             logging.debug(f"Thread started successfully with "
                           f"thread ID: {self.thread.ident}")
-
+            # self.close_sr_client()
         except Exception as Er:
             print(Er)
             logging.exception("Exception starting Startup_Subreflector_Client")
@@ -155,12 +150,11 @@ class StartupSubreflectorClient:
     def close_sr_client(self):
         logging.debug("User initiated Subreflector connection reset")
         logging.debug(f"{threading.enumerate()}")
-
-        endsocketthread = threading.Thread(target=self.srclient.end_connection)
-        endsocketthread.start()
-        endsocketthread.join()
         self.thread.join()
-
+        # endsocketthread = threading.Thread(target=)
+        # endsocketthread.start()
+        # endsocketthread.join()
+        self.srclient.end_connection()
         logging.debug(f"{threading.enumerate()}")
 
         #
@@ -206,7 +200,6 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
         logging.debug("#" * 50)
 
 
-
 class UDPCommandParser:
     """
     Instantiating this class takes a string and parses it to return the correct
@@ -226,7 +219,8 @@ class UDPCommandParser:
 
         # These are instances that are used within methods
         self.mcast_receiver = MulticastReceiver()  # For recieving data from SR
-        # self.mcast_receiver = threading.Thread(target=MulticastReceiver, args=(), name="Mcast Receiver")
+        # self.mcast_receiver = threading.Thread(
+        #     target=MulticastReceiver, args=(), name="Mcast Receiver")
         # self.mcast_receiver.daemon = False
         # self.mcast_receiver.start()
         # self.mcast_receiver.join()
@@ -257,21 +251,20 @@ class UDPCommandParser:
         except ValueError:
             msg = 'Structure of message should be ' \
                   '"EFFELSBERG:MTSUBREFLECTOR:[command]:[subcommand]".'
-            logging.info(msg)
+
             self.msg.append(msg)
         else:
 
             if telescope != "EFFELSBERG":
-                msg = 'Incorrect prefix (Command should start ' \
-                      'with "EFFELSBERG")'
-                logging.info(msg)
-                self.msg.append(msg)
+                logging.info('Input did not start with "EFFELSBERG"')
+                self.msg.append(
+                    'Incorrect prefix (Command should start with "EFFELSBERG")')
 
             elif subref != "MTSUBREFLECTOR":
-                msg = 'Incorrect prefix (Second entry of command should be ' \
-                      '"MTSUBREFLECTOR")'
-                logging.info(msg)
-                self.msg.append(msg)
+                logging.info('Subreference was not "MTSUBREFLECTOR"')
+                self.msg.append(
+                    'Incorrect prefix (Second entry of command should be '
+                    '"MTSUBREFLECTOR")')
 
             elif not command:
                 logging.debug("User gave no command var input")
@@ -314,7 +307,7 @@ class UDPCommandParser:
             logging.debug("interlock deactivate command given")
             self.mtcommand_client.deactivate_mt()
             self.msg.append("Interlock deactivated")
-            self.poopp.append("erf")
+
         elif "ACTIVATE" in subcommand:
             logging.debug("interlock activate command given")
             self.mtcommand_client.activate_mt()
@@ -326,13 +319,13 @@ class UDPCommandParser:
                 just_command, value = subcommand.strip().split(" ", 1)
                 logging.debug(
                     f"Command given: {just_command}. Value given: {value}")
-                assert value >= 8 and value <= 90
+                assert 8 <= value <= 90
 
             except AssertionError:
                 logging.exception("User gave elevation outside of range")
                 self.msg.append(
                     "The elevation given was outside the limits. Elevation "
-                    "must be between 8 degrees and 90 degrees inclusive.")
+                    "must L.put(10)be between 8 degrees and 90 degrees inclusive.")
 
             except ValueError:
                 logging.exception("Number given couldn't be converted to float")
@@ -365,19 +358,19 @@ class UDPCommandParser:
     def hexapod_control(self, subcommand):
 
         # Long message that is near identical except variation of type
-        def helper_msg(type):
+        def helper_msg(commandtype):
             """
-            :param type: str
+            :param commandtype: str
                 val: 'absolute' or 'relative
             :return: str
             """
-            assert type == 'absolute' or type == 'relative'
+            assert commandtype == 'absolute' or commandtype == 'relative'
 
             return \
-                f"One or more of the {type} values given go over the  " \
-                f"permitted limits. Please input smaller {type} values, or " \
-                f"use \"GETABS\" to read out current positions. Read Users " \
-                f"Manual for more information. Limits are: \n"\
+                f"One or more of the {commandtype} values given go over the  " \
+                f"permitted limits. Please input smaller {commandtype} " \
+                f"values, or use \"GETABS\" to read out current positions. " \
+                f"Read Users Manual for more information. Limits are: \n"\
                 " x_lin: between -225 and 225 \n" \
                 " y_lin: between -175 and 175 \n" \
                 " z_lin: between -195 and 45 \n" \
@@ -423,13 +416,12 @@ class UDPCommandParser:
                     logging.debug("Hexapod set linear absolute command given")
 
                     try:
-                        assert (new_val[0] <= 225) and (new_val[0] >= -225)
-                        assert (new_val[1] <= 175) and (new_val[1] >= -175)
-                        assert (new_val[2] <= 45) and (new_val[2] >= -195)
-                        assert (new_val[3] <= 10) and (new_val[3] >= 0.001)
+                        assert -225 <= new_val[0] <= 225
+                        assert -175 <= new_val[1] <= 175
+                        assert -195 <= new_val[2] <= 45
+                        assert .001 <= new_val[3] <= 10
 
                     except AssertionError:
-
                         self.msg.append(helper_msg('absolute'))
                         logging.exception("Absolute inputs go over saftey "
                                           "limits set on Hexapod. Aborted")
@@ -448,10 +440,10 @@ class UDPCommandParser:
                                   " command given")
 
                     try:
-                        assert (new_val[0] <= 0.95) and (new_val[0] >= -0.95)
-                        assert (new_val[1] <= 0.95) and (new_val[1] >= -0.95)
-                        assert (new_val[2] <= 0.95) and (new_val[2] >= -0.95)
-                        assert (new_val[3] <= 0.10) and (new_val[3] >= 0.001)
+                        assert -0.95 <= new_val[0] <= 0.95
+                        assert -0.95 <= new_val[1] <= 0.95
+                        assert -0.95 <= new_val[2] <= 0.95
+                        assert 0.001 <= new_val[3] <= 0.10
 
                     except AssertionError:
                         self.msg.append(helper_msg('absolute'))
@@ -478,10 +470,10 @@ class UDPCommandParser:
                     velocity = new_val[4]
 
                     try:
-                        assert (new_xlin <= 225) and (new_xlin >= -225)
-                        assert (new_ylin <= 175) and (new_ylin >= -175)
-                        assert (new_zlin <= 45) and (new_zlin >= -195)
-                        assert (velocity <= 10) and (velocity >= 0.001)
+                        assert -225 <= new_xlin <= 225
+                        assert -175 <= new_ylin <= 175
+                        assert -195 <= new_zlin <= 45
+                        assert .001 <= velocity <= 10
 
                     except AssertionError:
                         self.msg.append(helper_msg('relative'))
@@ -507,10 +499,10 @@ class UDPCommandParser:
                     velocity = new_val[4]
 
                     try:
-                        assert (new_xrot <= 0.95) and (new_xrot >= -0.95)
-                        assert (new_yrot <= 0.95) and (new_yrot >= -0.95)
-                        assert (new_zrot <= 0.95) and (new_zrot >= -0.95)
-                        assert (velocity <= 0.10) and (velocity >= 0.001)
+                        assert -0.95 <= new_xrot <= 0.95
+                        assert -0.95 <= new_yrot <= 0.95
+                        assert -0.95 <= new_zrot <= 0.95
+                        assert 0.001 <= velocity <= 0.10
 
                     except AssertionError:
                         self.msg.append(helper_msg('relative'))
@@ -792,8 +784,7 @@ class MulticastReceiver:
                    "status-data-bottom-flap",
                    "status-data-mirror-flap",
                    "status-data-temperature",
-                   "status-data-irig-b-system",
-                   ]
+                   "status-data-irig-b-system"]
 
         differences = []
 
