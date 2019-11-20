@@ -3,6 +3,9 @@ import sys
 import json
 import socket
 import struct
+from collections import defaultdict
+
+
 MULTICAST = ***REMOVED***
 MULTIPORT = ***REMOVED***
 MULTICAST_GROUP = ***REMOVED***
@@ -37,12 +40,17 @@ class GetterClass:
         try:
             multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
             self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
+            # dumpped = json.dumps(self.data)
+            # print(dumpped)
+            # print(type(self.data))
 
-            print('\n')
-            print(self.data['status-data-irig-b-system'][
-                      'current-time-as-modified-julian-day(mjd)'])
-            print(self.data["status-data-active-surface"]["Elevation-angle[deg]"])
-            # return self.data
+
+            # print('\n')
+            # print(self.data['status-data-irig-b-system'][
+            #           'current-time-as-modified-julian-day(mjd)'])
+            # print(self.data["status-data-active-surface"]["Elevation-angle[deg]"])
+            return self.data
+
         except OSError or ConnectionError as E:
             print(E)
 
@@ -63,10 +71,41 @@ def sdh_multicast():
 
         return str(multicastdata_bytes.decode('utf-8'))
 
+headers = [
+    "status-data-interlock",
+    "status-data-polarization-drive",
+    "status-data-hexapod-drive",
+    "status-data-focus-change-drive",
+    "status-data-active-surface",
+    "status-data-bottom-flap",
+    "status-data-mirror-flap",
+    "status-data-temperature",
+    "status-data-irig-b-system",
+]
+
+masters = [defaultdict(list), defaultdict(list), defaultdict(list),
+           defaultdict(list), defaultdict(list), defaultdict(list),
+           defaultdict(list), defaultdict(list), defaultdict(list)]
+
+
 sock_inst = GetterClass()
+count = 0
 while True:
     time.sleep(0.5)
-    sock_inst.recv_mcast_data()
+    data = sock_inst.recv_mcast_data()
+    # print(data)
+    count -= -1  # Some men want to watch the world burn
+    for nesteddict, master in zip(headers, masters):  # this is your data from the web
+        # master = defaultdict(list)
+        for k, v in data[nesteddict].items():
+            master[k].append(v)
+
+
+        if count%100 == 0:
+            # Only the useful info (word after 2nd '-'), and pads right side
+            just_name = nesteddict.split('-')[2].ljust(15)
+            print(just_name, master)
+
     # print(t['status-data-irig-b-system']['current-time-as-modified-julian-day(mjd)'])
     #
     # print(t["status-data-active-surface"]\
@@ -80,3 +119,5 @@ while True:
     # print(type(loaded))
     # print(t)
     # print(loaded["status-data-irig-b-system"])
+
+
