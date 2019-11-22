@@ -93,18 +93,21 @@ count = 0
 while True:
     time.sleep(0.5)
     data = sock_inst.recv_mcast_data()
-    # print(data)
+    print(data)
     count -= -1  # Some men want to watch the world burn
     for nesteddict, master in zip(headers, masters):  # this is your data from the web
         # master = defaultdict(list)
         for k, v in data[nesteddict].items():
             master[k].append(v)
 
-
-        if count%100 == 0:
-            # Only the useful info (word after 2nd '-'), and pads right side
-            just_name = nesteddict.split('-')[2].ljust(15)
-            print(just_name, master)
+    if count%10 == 0:
+        with open('getter_data.txt', 'w+') as file:
+            print(count)
+            # file.write(str(count) + "\n")
+            for nesteddict, master in zip(headers, masters):
+                # takes useful info (word after 2nd '-'), and pads to left side
+                just_name = nesteddict.split('-')[2].ljust(15)
+                file.write(just_name + str(master) + "\n")
 
     # print(t['status-data-irig-b-system']['current-time-as-modified-julian-day(mjd)'])
     #
