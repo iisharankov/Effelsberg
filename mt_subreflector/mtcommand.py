@@ -301,7 +301,6 @@ class MTCommand:
 
         self.encapsulate_command("asf", data)
 
-
     def rest_pos_asf(self):
         cmd_as = 100
         mode = 6
@@ -322,9 +321,9 @@ class MTCommand:
 
         self.encapsulate_command("asf", data)
 
-    def acknowledge_error_on_asf(self):
+    def preset_pos_asf(self):
         cmd_as = 100
-        mode = 15
+        mode = 23
         offset_dr_nr = 1  # 1-96 apparently
         offset_active = 0
 
@@ -333,9 +332,9 @@ class MTCommand:
 
         self.encapsulate_command("asf", data)
 
-    def preset_pos_asf(self):
+    def acknowledge_error_on_asf(self):
         cmd_as = 100
-        mode = 23
+        mode = 15
         offset_dr_nr = 1  # 1-96 apparently
         offset_active = 0
 
@@ -398,8 +397,7 @@ class MTCommand:
 
         self.encapsulate_command("hxpd", data)
 
-
-    def stohxpd(self):
+    def stop_hxpd(self):
         cmd_hxpd = 101
         fashion = 7
         mode_lin = 0
@@ -492,7 +490,7 @@ class MTCommand:
 
             self.encapsulate_command("hxpd", data)
 
-        # # # # # Polarization Drive # # # # #
+    # # # # # Polarization Drive # # # # #
     # TODO: Track_El needs to be added to polar, in docs. but what is it for ?
     def ignore_polar(self):
         cmd_polar = 102

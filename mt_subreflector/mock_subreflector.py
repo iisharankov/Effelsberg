@@ -37,7 +37,7 @@ def main():
 class Receiver:
 
     def __init__(self):
-        self.unpacked_data = 6
+        self.unpacked_data = 5
 
     @staticmethod
     def unpack(ctype, buf):

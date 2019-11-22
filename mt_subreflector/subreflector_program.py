@@ -73,6 +73,8 @@ def start_connections(is_test_server):
     """
     try:
 
+        #makes sure parameter is bool or int (bool is subclass of int)
+        assert isinstance(is_test_server, int)
         # def start_sr_client(self):
         logging.debug("Start Startup_Subreflector_Client instance")
         sr_client = StartupSubreflectorClient(is_test_server)
@@ -83,6 +85,9 @@ def start_connections(is_test_server):
 
         logging.debug("Start UDP server instance")
         start_udp_server(sr_client, is_test_server)
+
+    except AssertionError:
+        logging.debug("Start connections parameter must be bool, was other")
 
     except Exception as E:
         logging.exception("An exception occurred starting the threaded classes")
@@ -238,6 +243,7 @@ class UDPCommandParser:
         logging.debug("Parser values reset")
 
         try:
+            print("FERFERGERWG")
             telescope, subref, command, *subcommand = usr_input.split(":")
             logging.debug(f"User gave values {telescope}:{subref}:"
                           f"{command}:{subcommand}")
