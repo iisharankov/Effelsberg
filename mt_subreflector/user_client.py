@@ -6,7 +6,7 @@ def recv_msg(sock):
     try:
         # received = sock.recv(***REMOVED***)
         # print("Received: {}".format(received.decode('utf-8')))
-        recieved = None
+
         while True:
             received = sock.recv(***REMOVED***)
             time.sleep(0.1)
