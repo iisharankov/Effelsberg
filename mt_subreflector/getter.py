@@ -91,16 +91,16 @@ masters = [defaultdict(list), defaultdict(list), defaultdict(list),
 sock_inst = GetterClass()
 count = 0
 while True:
-    time.sleep(0.5)
+    time.sleep(1)
     data = sock_inst.recv_mcast_data()
-    print(data)
+    # print(data)
     count -= -1  # Some men want to watch the world burn
     for nesteddict, master in zip(headers, masters):  # this is your data from the web
         # master = defaultdict(list)
         for k, v in data[nesteddict].items():
             master[k].append(v)
 
-    if count%10 == 0:
+    if count%25 == 0:
         with open('getter_data.txt', 'w+') as file:
             print(count)
             # file.write(str(count) + "\n")
