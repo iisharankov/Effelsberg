@@ -1155,6 +1155,13 @@ p, li { white-space: pre-wrap; }
         </item>
         <item row="2" column="0" colspan="2">
          <layout class="QGridLayout" name="gridLayout_3">
+          <item row="3" column="1" rowspan="2">
+           <widget class="Line" name="line_2">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+           </widget>
+          </item>
           <item row="1" column="2">
            <layout class="QHBoxLayout" name="horizontalLayout_2">
             <item>
@@ -1224,7 +1231,7 @@ p, li { white-space: pre-wrap; }
             </item>
            </layout>
           </item>
-          <item row="3" column="0">
+          <item row="4" column="0">
            <layout class="QVBoxLayout" name="verticalLayoutPolarSetPositionTab">
             <item>
              <widget class="QLabel" name="labelPolarSetTitle">
@@ -1372,7 +1379,7 @@ p, li { white-space: pre-wrap; }
             </item>
            </layout>
           </item>
-          <item row="2" column="0">
+          <item row="3" column="0">
            <spacer name="verticalSpacer">
             <property name="orientation">
              <enum>Qt::Vertical</enum>
@@ -1388,7 +1395,7 @@ p, li { white-space: pre-wrap; }
             </property>
            </spacer>
           </item>
-          <item row="3" column="2">
+          <item row="4" column="2">
            <layout class="QHBoxLayout" name="horizontalPolarStatusTab">
             <item>
              <spacer name="horizontalSpacer_3">
@@ -1649,10 +1656,10 @@ p, li { white-space: pre-wrap; }
             </property>
            </widget>
           </item>
-          <item row="0" column="1" rowspan="4">
-           <widget class="Line" name="line_2">
+          <item row="2" column="0" colspan="3">
+           <widget class="Line" name="line_4">
             <property name="orientation">
-             <enum>Qt::Vertical</enum>
+             <enum>Qt::Horizontal</enum>
             </property>
            </widget>
           </item>
