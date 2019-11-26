@@ -16,8 +16,9 @@ SR_MULTI = ***REMOVED***  # Port where subreflector_client.py outputs JSON
 LOCAL_ADDRESS = ''  # local IP
 
 MULTICAST = (***REMOVED***, ***REMOVED***)
-USETESTSERVER = False
 
+
+__all__ = ['start_server']
 
 class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     """
@@ -909,11 +910,12 @@ class MulticastReceiver:
 
         return flag_for_linear, flag_for_rotation
 
-def main():
-    logging.basicConfig(filename='debug/subreflector_program_debug.log',
+
+def start_server(use_test_server):
+    logging.basicConfig(filename='subreflector_program_debug.log',
                         filemode='w', level=logging.DEBUG,
                         format='%(asctime)s - %(levelname)s - %(thread)d - '
                                '%(module)s - %(funcName)s- %(message)s',
                         datefmt='%d-%b-%y %H:%M:%S')
 
-    start_connections(USETESTSERVER)
+    start_connections(use_test_server)
