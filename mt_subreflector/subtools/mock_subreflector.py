@@ -4,6 +4,9 @@ import socket
 import pickle
 import threading
 
+__all__ = ['start_mock_server']
+
+
 SUBREF_ADDR = "***REMOVED***"
 SUBREF_READ_PORT = ***REMOVED***
 SUBREF_WRITE_PORT = ***REMOVED***
@@ -13,7 +16,7 @@ buffer_size = ***REMOVED***
 
 # Opens and creates mirror samples of what the subreflector sends
 # TODO: Local location, FIX before release
-location = "/home/ivan/PycharmProjects/Effelsberg/mt_subreflector/data/" \
+location = "/home/bwinkel/projects/subtools/mt_subreflector/data/" \
            "Pickled_Subreflector_Output.p"
 with open(location, "rb") as pickle_instance:
     unpickled_obj = pickle.load(pickle_instance)
@@ -21,7 +24,7 @@ with open(location, "rb") as pickle_instance:
     second_msg = unpickled_obj[***REMOVED***:]
 
 
-def main():
+def start_mock_server():
     t = threading.Thread(target=sender, args=(), name="***REMOVED*** Port")
     t.daemon = False
     t.start()
@@ -230,4 +233,4 @@ class BasicStructure(ctypes.Structure):
 
 
 if __name__ == '__main__':
-    main()
+    start_mock_server()
