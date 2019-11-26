@@ -1,5 +1,3 @@
-import os
-import sys
 import time
 import json
 import copy
@@ -9,16 +7,17 @@ import logging
 import threading
 import socketserver
 
-import subreflector_client
-import mtcommand
+from . import mtcommand, subreflector_client
 
 # Constants
 UDPTELNET_PORT = ***REMOVED***
 SDH_PORT = 1602  # Port where sdh output can be reached
 SR_MULTI = ***REMOVED***  # Port where subreflector_client.py outputs JSON
 LOCAL_ADDRESS = ''  # local IP
-MULTICAST_GROUP = '***REMOVED***'  # Multicast IP address
-USETESTSERVER = True
+
+MULTICAST = ('***REMOVED***', ***REMOVED***)
+USETESTSERVER = False
+
 
 class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     """
@@ -37,6 +36,7 @@ class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
         logging.debug("Initialized ThreadingUDPServer")
         self.helll = "hello"
         # self.start_sr_client()
+
 
 def start_udp_server(sr_client, is_test_server):
     """
@@ -73,7 +73,7 @@ def start_connections(is_test_server):
     """
     try:
 
-        #makes sure parameter is bool or int (bool is subclass of int)
+        # makes sure parameter is bool or int (bool is subclass of int)
         assert isinstance(is_test_server, int)
         # def start_sr_client(self):
         logging.debug("Start Startup_Subreflector_Client instance")
@@ -92,6 +92,7 @@ def start_connections(is_test_server):
     except Exception as E:
         logging.exception("An exception occurred starting the threaded classes")
         raise E
+
 
 # def close_sr_client(sr_client):
 #     logging.debug("User initiated Subreflector connection reset")
@@ -178,6 +179,7 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
     and forwarding it to mtcommand.py, which directly communicates to the
     subreflector
     """
+
     def setup(self):
         self.msg = []
 
@@ -243,8 +245,10 @@ class UDPCommandParser:
         logging.debug("Parser values reset")
 
         try:
-            print("FERFERGERWG")
-            telescope, subref, command, *subcommand = usr_input.split(":")
+
+            telescope, subref, command, \
+                *subcommand = usr_input.strip().split(":")
+
             logging.debug(f"User gave values {telescope}:{subref}:"
                           f"{command}:{subcommand}")
 
@@ -308,7 +312,7 @@ class UDPCommandParser:
 
     # # # # # Interlock parsing section # # # # #
     def interlock_control(self, subcommand):
-        
+
         if "DEACTIVATE" in subcommand:
             logging.debug("interlock deactivate command given")
             self.mtcommand_client.deactivate_mt()
@@ -322,16 +326,17 @@ class UDPCommandParser:
         elif "SET" in subcommand:
 
             try:
-                just_command, value = subcommand.strip().split(" ", 1)
+                just_command, str_value = subcommand.strip().split(" ", 1)
                 logging.debug(
-                    f"Command given: {just_command}. Value given: {value}")
+                    f"Command given: {just_command}. Value given: {str_value}")
+                value = int(str_value)
                 assert 8 <= value <= 90
 
             except AssertionError:
                 logging.exception("User gave elevation outside of range")
                 self.msg.append(
                     "The elevation given was outside the limits. Elevation "
-                    "must L.put(10)be between 8 degrees and 90 degrees inclusive.")
+                    "must be between 8 degrees and 90 degrees inclusive.")
 
             except ValueError:
                 logging.exception("Number given couldn't be converted to float")
@@ -376,7 +381,7 @@ class UDPCommandParser:
                 f"One or more of the {commandtype} values given go over the  " \
                 f"permitted limits. Please input smaller {commandtype} " \
                 f"values, or use \"GETABS\" to read out current positions. " \
-                f"Read Users Manual for more information. Limits are: \n"\
+                f"Read Users Manual for more information. Limits are: \n" \
                 " x_lin: between -225 and 225 \n" \
                 " y_lin: between -175 and 175 \n" \
                 " z_lin: between -195 and 45 \n" \
@@ -436,8 +441,8 @@ class UDPCommandParser:
                         self.mtcommand_client.preset_abs_lin_hxpd(
                             new_val[0], new_val[1], new_val[2], new_val[3])
                         msg = f"Set absolute values for linear drives on " \
-                              f"hexapod to \n"\
-                              f" xlin: {new_val[0]}, ylin: {new_val[1]},"\
+                              f"hexapod to \n" \
+                              f" xlin: {new_val[0]}, ylin: {new_val[1]}," \
                               f" zlin: {new_val[2]}, v_lin: {new_val[3]}"
                         self.msg.append(msg)
 
@@ -466,14 +471,13 @@ class UDPCommandParser:
                         self.msg.append(msg)
                         logging.debug("Msg appended")
 
-
                 elif "SETRELLIN" in subcommand:
                     logging.debug("Hexapod set relative linear command given")
                     cur_vals = self.mcast_receiver.get_hexapod_positions()
                     new_xlin = cur_vals[0] + new_val[0]
                     new_ylin = cur_vals[1] + new_val[1]
                     new_zlin = cur_vals[2] + new_val[2]
-                    velocity = new_val[4]
+                    velocity = new_val[3]
 
                     try:
                         assert -225 <= new_xlin <= 225
@@ -499,10 +503,10 @@ class UDPCommandParser:
                     logging.debug("Hexapod set relative rotational "
                                   "command given")
                     positions = self.mcast_receiver.get_hexapod_positions()
-                    new_xrot = positions[4] + new_val[0]
-                    new_yrot = positions[5] + new_val[1]
-                    new_zrot = positions[6] + new_val[2]
-                    velocity = new_val[4]
+                    new_xrot = positions[3] + new_val[0]
+                    new_yrot = positions[4] + new_val[1]
+                    new_zrot = positions[5] + new_val[2]
+                    velocity = new_val[3]
 
                     try:
                         assert -0.95 <= new_xrot <= 0.95
@@ -527,7 +531,7 @@ class UDPCommandParser:
                     # Safety, but should be unreachable
                     self.msg.append(
                         'Subcommand not recognized. Possible entries are: '
-                        '"SETABSLIN", "SETABSREL", "SETRELLIN", or "SETRELROT"')
+                        '"SETABSLIN", "SETABSROT", "SETRELLIN", or "SETRELROT"')
 
         elif "DEACTIVATE" in subcommand:
             logging.debug("Hexapod deactivation command given")
@@ -656,7 +660,7 @@ class UDPCommandParser:
 
         if "RESETCONNECTION" in subcommand:
             logging.debug("Other command given to reset connection to server")
-            self.reset_connections()   #TODO Fix this threading nuance
+            self.reset_connections()  # TODO Fix this threading nuance
 
         elif "?" in subcommand:
             self.msg.append('Usable types for other are: "RESETCONNECTION".')
@@ -703,7 +707,8 @@ class MulticastReceiver:
         logging.debug("Initializing MulticastReciever")
         self.sock = None  # set in __init__ for PEP-8 consistency
         self.data = None
-        self.last_msg = None
+        self.thread = None
+        self.mcast_data = None
         self.init_multicast()
 
     def init_multicast(self):
@@ -712,29 +717,50 @@ class MulticastReceiver:
         sadly it was simpler to avoid a context manager, and risk not closing
         the socket (though, it shouldn't be closed while the program is running)
         """
-
         logging.debug("Setting up the multicast receiver")
         try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            server_address = ('', SR_MULTI)
-            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.sock.bind(server_address)
 
-            group = socket.inet_aton(MULTICAST_GROUP)
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sock.bind(MULTICAST)
+
+            group = socket.inet_aton(MULTICAST[0])
             mreq = struct.pack('4sL', group, socket.INADDR_ANY)
             self.sock.setsockopt(socket.IPPROTO_IP,
                                  socket.IP_ADD_MEMBERSHIP, mreq)
+
         except ConnectionError or OSError:
             logging.exception("There was an exception setting "
                               "up the multicast receiver")
 
+    def start_mcast_receiver_thread(self):
+
+        try:
+            logging.debug(f"Creating Thread")
+            self.thread = threading.Thread(
+                target=self.get_new_status, args=(), name='update_mcast')
+
+            self.thread.daemon = False  # Demonize thread
+            logging.debug(f"Threading set to {self.thread.daemon}.")
+            self.thread.start()
+
+        except Exception as Er:
+            print(Er)
+            logging.exception("Exception starting Startup_Subreflector_Client")
+
+
     def recv_mcast_data(self):
         try:
             logging.debug("Recieved new multicast packet")
+
             multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
+            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
+            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
+            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
+            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
+
             self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
-            print('\n')
-            print(self.data['status-data-irig-b-system']['current-time-as-modified-julian-day(mjd)'])
+
             print(self.data["status-data-active-surface"]["Elevation-angle[deg]"])
 
         except OSError or ConnectionError as E:
@@ -756,102 +782,138 @@ class MulticastReceiver:
     def deepcopy_mcast_data(self):
         # Deep copy to avoid any issues with memory linkage
         logging.debug("New message deep copied to instance variable")
-        self.last_msg = copy.deepcopy(self.data)
-        logging.debug(f'Interlock elv self.last: {self.last_msg["status-data-active-surface"]["Elevation-angle[deg]"]}')
+        self.mcast_data = copy.deepcopy(self.data)
+        logging.debug(
+            f'Interlock elv self.last: {self.mcast_data["status-data-active-surface"]["Elevation-angle[deg]"]}')
 
     def get_new_status(self):
         try:
-
+            logging.debug("getting_new_mcast")
             self.recv_mcast_data()
-            logging.debug(
-                f'Interlock elv self.data: {self.data["status-data-active-surface"]["Elevation-angle[deg]"]}')
-
             self.assert_static_data()
             self.deepcopy_mcast_data()
-            logging.debug(f'Interlock elv self.last: '
-                          f'{self.last_msg["status-data-active-surface"]["Elevation-angle[deg]"]}')
-            logging.debug("New message received and initialized correctly")
+
         except Exception as E:
             msg = "There was an exception receiving and processing a " \
                   "multicast message from the subreflector."
             logging.exception(msg)
             print(msg, E)
 
-    def find_diferences(self):
-        self.assert_static_data()
-        self.data["status-data-interlock"]["simulation"] = "hello"
-        self.data["status-data-interlock"]["override"] = "world"
-
-        headers = ["status-data-interlock",
-                   "status-data-polarization-drive",
-                   "status-data-hexapod-drive",
-                   "status-data-focus-change-drive",
-                   "status-data-active-surface",
-                   "status-data-bottom-flap",
-                   "status-data-mirror-flap",
-                   "status-data-temperature",
-                   "status-data-irig-b-system"]
-
-        differences = []
-
-        # Runs through all the subfields in the dict and find value differences
-        for item in headers:
-            value = {k: self.data[item][k] for k, _ in
-                     set(self.data[item].items())
-                     - set(self.last_msg[item].items())}\
-
-            if value:
-                # If value is different, append to differences
-                differences += (item, value)
-
-        print(differences)
+    # def find_diferences(self):
+    #     self.assert_static_data()
+    #     self.data["status-data-interlock"]["simulation"] = "hello"
+    #     self.data["status-data-interlock"]["override"] = "world"
+    #
+    #     headers = ["status-data-interlock",
+    #                "status-data-polarization-drive",
+    #                "status-data-hexapod-drive",
+    #                "status-data-focus-change-drive",
+    #                "status-data-active-surface",
+    #                "status-data-bottom-flap",
+    #                "status-data-mirror-flap",
+    #                "status-data-temperature",
+    #                "status-data-irig-b-system"]
+    #
+    #     differences = []
+    #
+    #     # Runs through all the subfields in the dict and find value differences
+    #     for item in headers:
+    #         value = {k: self.data[item][k] for k, _ in
+    #                  set(self.data[item].items())
+    #                  - set(self.last_msg[item].items())}
+    #
+    #         if value:
+    #             # If value is different, append to differences
+    #             differences += (item, value)
+    #
+    #     print(differences)
 
     def get_elevation(self):
-        # self.get_new_status()
+        self.get_new_status()
+        mcast_data = self.mcast_data  # local to prevent race condition
 
-        self.recv_mcast_data()
-        self.assert_static_data()
-        self.deepcopy_mcast_data()
-
-
-        lastmessage = self.last_msg  # local to prevent race condition
-
-        elevation = lastmessage["status-data-active-surface"]\
-                                ["Elevation-angle[deg]"]
+        elevation = mcast_data["status-data-active-surface"] \
+            ["Elevation-angle[deg]"]
         return elevation
 
     def get_polar_position(self):
         self.get_new_status()
-        lastmessage = self.last_msg  # local to prevent race condition
+        mcast_data = self.mcast_data  # local to prevent race condition
 
-        p_soll = lastmessage["status-data-polarization-drive"]\
-                            ["current-actual-position[deg]"]
+        p_soll = mcast_data["status-data-polarization-drive"] \
+            ["current-actual-position[deg]"]
+
         return p_soll
 
     def get_hexapod_positions(self):
         self.get_new_status()
-        lastmessage = self.last_msg  # local to prevent race condition
+        mcast_data = self.mcast_data  # local to prevent race condition
 
         hxpd_header = "status-data-hexapod-drive"
-        hxpd_xlin = lastmessage[hxpd_header]["current_position_x_linear[mm]"]
-        hxpd_ylin = lastmessage[hxpd_header]["current_position_y_linear[mm]"]
-        hxpd_zlin = lastmessage[hxpd_header]["current_position_z_linear[mm]"]
-        hxpd_xrot = lastmessage[hxpd_header]["current_position_x_rotation[deg]"]
-        hxpd_yrot = lastmessage[hxpd_header]["current_position_y_rotation[deg]"]
-        hxpd_zrot = lastmessage[hxpd_header]["current_position_z_rotation[deg]"]
+        hxpd_xlin = mcast_data[hxpd_header]["current_position_x_linear[mm]"]
+        hxpd_ylin = mcast_data[hxpd_header]["current_position_y_linear[mm]"]
+        hxpd_zlin = mcast_data[hxpd_header]["current_position_z_linear[mm]"]
+        hxpd_xrot = mcast_data[hxpd_header]["current_position_x_rotation[deg]"]
+        hxpd_yrot = mcast_data[hxpd_header]["current_position_y_rotation[deg]"]
+        hxpd_zrot = mcast_data[hxpd_header]["current_position_z_rotation[deg]"]
         return (hxpd_xlin, hxpd_ylin, hxpd_zlin,
                 hxpd_xrot, hxpd_yrot, hxpd_zrot)
 
-    def print_mcast_data(self):  # Useless method with current implementation
+
+    def check_hexapod_activated(self):
         self.get_new_status()
-        self.find_diferences()
+        mcast_data = self.mcast_data  # local to prevent race condition
+        hxpd_header = "status-data-hexapod-drive"
+        flag = True
 
+        try:
+            assert mcast_data[hxpd_header]["status_of_the_subsystem_"] == 1
+            for i in range(5):
+                break_open = f"spindle{i + 1}-brake-open"
+                assert mcast_data[hxpd_header][break_open] == 1
 
-if __name__ == "__main__":
+                spin_active = f"spindle{i + 1}-spindle-active"
+                assert mcast_data[hxpd_header][spin_active] == 1
+        except AssertionError:
+            flag = False
+
+        return flag
+
+    def check_hexapod_is_stationary(self):
+        self.get_new_status()
+        mcast_data = self.mcast_data  # local to prevent race condition
+        hxpd_header = "status-data-hexapod-drive"
+        flag_for_linear, flag_for_rotation = True, True
+
+        stationary_linear = ["target_position_x_linear[mm]",
+                             "target_position_y_linear[mm]",
+                             "target_position_z_linear[mm]",
+                             "target_speed_linear[mm/s]",
+                             ]
+
+        stationary_rotation = ["target_position_x_rotation[deg]",
+                               "target_position_y_rotation[deg]",
+                               "target_position_z_rotation[deg]",
+                               "target_speed_rotation[deg/s]"]
+        try:
+            for i in stationary_linear:
+                assert mcast_data[hxpd_header][i] == 0
+        except AssertionError:
+            flag_for_linear = False
+
+        try:
+            for i in stationary_rotation:
+                assert mcast_data[hxpd_header][i] == 0
+        except AssertionError:
+            flag_for_rotation = False
+
+        return flag_for_linear, flag_for_rotation
+
+def main():
     logging.basicConfig(filename='debug/subreflector_program_debug.log',
                         filemode='w', level=logging.DEBUG,
-                        format='%(asctime)s - %(levelname)s - %(thread)d - %(module)s '
-                               '- %(funcName)s- %(message)s',
+                        format='%(asctime)s - %(levelname)s - %(thread)d - '
+                               '%(module)s - %(funcName)s- %(message)s',
                         datefmt='%d-%b-%y %H:%M:%S')
 
     start_connections(USETESTSERVER)

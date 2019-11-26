@@ -1,15 +1,8 @@
-import socketserver
 import threading
 import logging
 import socket
-import ctypes
-import struct
-import time
-import json
-import os
-import sys, os
 
-from mt_subreflector import mock_subreflector, subreflector_program
+from subtools import mock_subreflector, subreflector_program
 
 SUBREF_ADDR = "***REMOVED***"
 SUBREF_READ_PORT = ***REMOVED***
@@ -132,29 +125,3 @@ class TestCanTest():
         real = mock_sr.receiver.unpacked_data
         assert real == 5
 
-# class TestSubreflectorProgram:
-#     def test_server_starts_tcp_server(self):
-#         # Start game server in a background thread
-#         server = subreflector_program.main()
-#         server_thread = threading.Thread(target=server.start_listening)
-#         server_thread.start()
-#
-#         # On my computer, 0.0000001 is the minimum sleep time or the
-#         # client might connect before server thread binds and listens
-#         # other computers will differ.
-#         time.sleep(0.00001)
-#
-#         # This is our fake test client that is just going to attempt
-#         # a connect and disconnect
-#         fake_client = socket.socket()
-#         fake_client.settimeout(1)
-#         fake_client.connect(('***REMOVED***', 7777))
-#         fake_client.close()
-#
-#         # Make sure server thread finishes
-#         server_thread.join()
-
-
-#
-# if __name__ == '__main__':
-#     main()

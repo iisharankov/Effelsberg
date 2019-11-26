@@ -2,10 +2,7 @@ import time
 import ctypes
 import socket
 import pickle
-import logging
 import threading
-
-from mt_subreflector import subreflector_client
 
 SUBREF_ADDR = "***REMOVED***"
 SUBREF_READ_PORT = ***REMOVED***
