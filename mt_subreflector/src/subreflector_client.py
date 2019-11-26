@@ -7,7 +7,6 @@ import socket
 import struct
 import logging
 import threading
-from astropy.time import Time
 
 SR_ADDR = ***REMOVED***
 LOCAL_ADDR = '***REMOVED***'
@@ -27,17 +26,6 @@ class SubreflectorClient:
     def main(self):
         self.activate_multicasting()
         self.make_connection()
-
-    def activate_multicasting(self):
-        # Sets up multicast socket for later use
-        self.multicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.multicast_sock.setsockopt(socket.IPPROTO_IP,
-                                       socket.IP_MULTICAST_TTL, 1)
-
-        logging.debug("Starting Multicast queue reader in thread")
-        t = threading.Thread(target=self.send_mcast, args=(), name="Queue_Mcast")
-        t.deamon = True
-        t.start()
 
     def use_test_server(self, test_server):
         """
@@ -90,10 +78,24 @@ class SubreflectorClient:
                 logging.exception("Error connecting to server. May not be found")
                 print(f"Could not connect to the Subreflector: {E}")
 
+    def activate_multicasting(self):
+        # Sets up multicast socket for later use
+        self.multicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM,
+                                            socket.IPPROTO_UDP)
+        self.multicast_sock.setsockopt(socket.IPPROTO_IP,
+                                       socket.IP_MULTICAST_TTL, 32 ) #1)
+
+        logging.debug("Starting Multicast queue reader in thread")
+        t = threading.Thread(target=self.send_mcast, args=(), name="Queue_Mcast")
+        t.deamon = True
+        t.start()
+
     def send_mcast(self):
         templock = threading.Lock()
+
         while True:
             with templock:
+
                 status_message = self.mcast_queue.get()
                 self.multicast_sock.sendto(status_message, MULTICAST)
 
@@ -111,10 +113,9 @@ class SubreflectorClient:
         :return:
         """
         sock.send(b"\n")  # Initial message is needed to start stream
-        count = 0
-        data = b''
+        data, count = b'', 0
         while 1:
-            time.sleep(0.5)
+            # time.sleep(0.5)
             try:
 
                 # Due to the nature of TCP/IP connections, and the properties
@@ -127,8 +128,8 @@ class SubreflectorClient:
                 # twice the size of the message to ensure full message inside
                 assert len(data) >= 1760 * 2
 
-                if not len(data) == (1760*2):
-                    logging.warning(f"Data was weird: {data}")
+                # if not len(data) == (1760*2):
+                #     logging.warning(f"{len(data)}Data was weird: {data}")
 
                 if data == b'':
                     logging.warning(
@@ -153,6 +154,10 @@ class SubreflectorClient:
                 endindex = (data.find(b"\xd1\xcf\xfc\xa1"))
                 full_msg = data[:endindex + 4]  # +4 as endindex is start string
                 # logging.debug(f"full_length msg is length {len(full_msg)}")
+
+                data = b''
+                count += 1
+
                 if len(full_msg) > 1760:
                     msg = "The message didn't register the correct length, " \
                           "data may have been added/lost, changing the length."
@@ -160,29 +165,29 @@ class SubreflectorClient:
                     raise ValueError(msg)
 
                 # Expected length of the message
-
-                elif len(full_msg) == 1760:
-                    data = b''
+                # Only manipulated data and sends to multicast every 10 mesages
+                elif len(full_msg) == 1760 and count%1 == 0:
 
                     # Optional pickling of the message for storage
-                    # pickle.dump(full_msg, open("Subreflector_Output_Nov-4.p", 'ab'))
+                    # pickle.dump(full_msg, open("Subreflector_Output.p", 'ab'))
 
-                    # TODO: Next line just here for testing reasons
-                    count += 1
-                    print(f"\rmessage sent x{count}", end='')
-                    # if count == 109:
-                    #     print(time.time() -self.starttime)
 
-                    # this block is just precautionary to avoid loops in queue
+
+                    print(f"\rmessage sent x{count/1}", end='')
+
+                    # if :  # only processes every 10th to save work
+                    processed_msg = self.package_msg(full_msg)
+
+                    # this block is precautionary to avoid loops in queue
                     try:
                         assert not self.mcast_queue.full()
 
                         if self.mcast_queue.qsize() > 7:
-                            # In case queue starts to reach max size, clear it
-                            # and then add the queue object
+                            # In case queue starts to reach max size, clear
+                            # it and then add the queue object
                             self.mcast_queue.queue.clear()
 
-                        self.mcast_queue.put(self.package_msg(full_msg))
+                        self.mcast_queue.put(processed_msg)
 
                     except AssertionError:
                         logging.exception("Queue filled up!")
@@ -837,7 +842,7 @@ class SubreflectorClient:
                         'target_position_x_rotation[deg]': hxpd[428],
                         'target_position_y_rotation[deg]': hxpd[429],
                         'target_position_z_rotation[deg]': hxpd[430],
-                        'target_speed_linear[deg/s]': hxpd[431],
+                        'target_speed_rotation[deg/s]': hxpd[431],
                         'last_sent_parameter_command': hxpd[432],
                         'command_response_of_the_parameter_command': hxpd[433],
                         'parameter_1_of_the_parameter_command': hxpd[434],
