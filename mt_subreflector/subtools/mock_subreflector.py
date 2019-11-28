@@ -1,10 +1,13 @@
 import time
+import json
 import ctypes
 import socket
 import pickle
 import threading
 
-__all__ = ['start_mock_server']
+from . import process_message
+
+# __all__ = ['start_mock_server']
 
 
 SUBREF_ADDR = "***REMOVED***"
@@ -13,23 +16,29 @@ SUBREF_WRITE_PORT = ***REMOVED***
 buffer_size = ***REMOVED***
 
 # TODO: ADD port ***REMOVED*** to receive commands, copy client.py methods to decode
+# for a, b in zip(sample_msg, origional_way):
+#     # assert np.isclose(a, b, 0.00001)
+#     for x, y in zip(a, b):
+#         assert abs(x-y) < 0.01
 
-# Opens and creates mirror samples of what the subreflector sends
-# TODO: Local location, FIX before release
-location = "/home/bwinkel/projects/subtools/mt_subreflector/data/" \
-           "Pickled_Subreflector_Output.p"
-with open(location, "rb") as pickle_instance:
-    unpickled_obj = pickle.load(pickle_instance)
-    first_msg = unpickled_obj[:***REMOVED***]
-    second_msg = unpickled_obj[***REMOVED***:]
+# takes the sample message in process_message and encodes it to send through
+sample_msg = process_message.encode_struct(*process_message.sample_message)
 
+# Seperates the message into 2, just like received by the real SR
+first_msg = sample_msg[:***REMOVED***]
+second_msg = sample_msg[***REMOVED***:]
 
-def start_mock_server():
+def main():
+    my_receiver = Receiver()
+    start_mock_server(my_receiver)
+
+def start_mock_server(my_receiver):
     t = threading.Thread(target=sender, args=(), name="***REMOVED*** Port")
     t.daemon = False
     t.start()
 
-    t2 = threading.Thread(target=Receiver().create_socket, args=(), name="***REMOVED*** Port")
+    t2 = threading.Thread(target=my_receiver.create_socket, args=(),
+                          name="***REMOVED*** Port")
     t2.daemon = False
     t2.start()
 
@@ -37,7 +46,13 @@ def start_mock_server():
 class Receiver:
 
     def __init__(self):
-        self.unpacked_data = 5
+        self.unpacked_data = 61
+        self.elevation = None
+        self.do_run = True
+
+    def shutdown(self):
+        print('Receiver shutdown')
+        self.do_run = False
 
     @staticmethod
     def unpack(ctype, buf):
@@ -73,33 +88,91 @@ class Receiver:
                 connection, client_address = sock.accept()
 
                 # intercept SR command to deconstruct
-                while True:
-                    time.sleep(1)
+                while self.do_run:
+                    # time.sleep()
                     data = connection.recv(buffer_size)
                     if data:
                         self.find_structure_type(data)
 
     def find_structure_type(self, data):
+        self.unpacked_data = 50
         # This method unpacks the data message with a
         # BasicStructure class that can extract the command type
 
         try:
-            _basic_unpack = self.unpack(BasicStructure, data)
+            _basic_unpack = self.unpack(process_message.BasicStructure, data)
             assert _basic_unpack.command in [100, 101, 102, 106]
 
         except AttributeError or AssertionError:
             pass
         else:
+
             if _basic_unpack.command == 100:
-                self.unpacked_data = self.unpack(AsfStructure, data)
+                unpacked_data = self.unpack(process_message.AsfStructure, data)
+                self.asf_parser(unpacked_data)
             elif _basic_unpack.command == 101:
-                self.unpacked_data = self.unpack(HexapodStructure, data)
+                unpacked_data = self.unpack(process_message.HexapodStructure, data)
+                self.hexapod_parser(unpacked_data)
             elif _basic_unpack.command == 102:
-                self.unpacked_data = self.unpack(PolarStructure, data)
+                unpacked_data = self.unpack(process_message.PolarStructure, data)
+                self.polar_parser(unpacked_data)
             elif _basic_unpack.command == 106:
-                self.unpacked_data = self.unpack(InterlockStructure, data)
+                unpacked_data = self.unpack(process_message.InterlockStructure, data)
+                print(unpacked_data.elevation)
+                self.interlock_parser(unpacked_data)
+
+    def asf_parser(self, unpacked_data):
+        assert unpacked_data.command == 100
+        self.asf_mode = unpacked_data.mode
+        self.asf_offset_dr_nr = unpacked_data.offset_dr_nr
+        self.asf_offset_active = unpacked_data.offset_active
+        self.asf_offset_active1 = unpacked_data.offset_active1
+        self.asf_offset_active2 = unpacked_data.offset_active2
+        self.asf_offset_active3 = unpacked_data.offset_active3
+        self.asf_offset_active4 = unpacked_data.offset_active4
+        self.asf_offset_active5 = unpacked_data.offset_active5
+        self.asf_offset_active6 = unpacked_data.offset_active6
+        self.asf_offset_active7 = unpacked_data.offset_active7
+        self.asf_offset_active8 = unpacked_data.offset_active8
+        self.asf_offset_active9 = unpacked_data.offset_active9
+        self.asf_offset_active10 = unpacked_data.offset_active10
+        self.asf_offset_active11 = unpacked_data.offset_active11
 
 
+
+    def hexapod_parser(self, unpacked_data):
+        assert unpacked_data.command == 101
+        self.hexapod_mode = unpacked_data.mode
+        self.hexapod_mode_lin = unpacked_data.mode_lin
+        self.hexapod_anzahl_lin = unpacked_data.anzahl_lin
+        self.hexapod_phase_lin = unpacked_data.phase_lin
+        self.hexapod_p_xlin = unpacked_data.p_xlin
+        self.hexapod_p_ylin = unpacked_data.p_ylin
+        self.hexapod_p_zlin = unpacked_data.p_zlin
+        self.hexapod_p_zlin = unpacked_data.p_zlin
+        self.hexapod_v_cmd = unpacked_data.v_cmd
+        self.hexapod_mode_rot = unpacked_data.mode_rot
+        self.hexapod_anzahl_rot = unpacked_data.anzahl_rot
+        self.hexapod_phase_rot = unpacked_data.phase_rot
+        self.hexapod_p_xrot = unpacked_data.p_xrot
+        self.hexapod_p_yrot = unpacked_data.p_yrot
+        self.hexapod_p_zrot = unpacked_data.p_zrot
+        self.hexapod_v_rot = unpacked_data.v_rot
+
+
+    def polar_parser(self, unpacked_data):
+        assert unpacked_data.command == 102
+        self.interlock_mode = unpacked_data.mode
+        self.interlock_p_soll = unpacked_data.p_soll
+        self.interlock_v_cmd = unpacked_data.v_cmd
+
+    def interlock_parser(self, unpacked_data):
+        assert unpacked_data.command == 106
+        self.interlock_mode = unpacked_data.mode
+        self.interlock_elevation = unpacked_data.elevation
+        self.interlock_reserverd = unpacked_data.reserved
+        print("interlock_parser")
+        print(f"{self.interlock_elevation}")
 
 
 
@@ -133,7 +206,7 @@ def sender():
                     print("Initialization request received")
 
                     while True:
-                        time.sleep(0.01)
+                        time.sleep(0.05)
                         # Loop sending messages just like the real SR does
                         try:
                             connection.send(second_msg)
@@ -147,89 +220,6 @@ def sender():
                 break
 
 
-# # # # # # # # STRUCTURE CLASSES # # # # # # # #
-class InterlockStructure(ctypes.Structure):
-    _pack_ = 1
-    _fields_ = [("start_flag", ctypes.c_uint32),
-                ("message_length", ctypes.c_int32),
-                ("command_serial_number", ctypes.c_int32),
-                ("command", ctypes.c_int16),
-                ("mode", ctypes.c_int16),
-                ("elevation", ctypes.c_double),
-                ("reserved", ctypes.c_double),
-                ("end_flag", ctypes.c_uint32)]
-
-
-class AsfStructure(ctypes.Structure):
-    _pack_ = 1
-    _fields_ = [("start_flag", ctypes.c_uint32),
-                ("message_length", ctypes.c_int32),
-                ("command_serial_number", ctypes.c_int32),
-                ("command", ctypes.c_int16),
-                ("mode", ctypes.c_int16),
-                ("offset_dr_nr", ctypes.c_int16),
-                ("offset_active", ctypes.c_uint16),
-                ("offset_value1", ctypes.c_int16),
-                ("offset_value2", ctypes.c_int16),
-                ("offset_value3", ctypes.c_int16),
-                ("offset_value4", ctypes.c_int16),
-                ("offset_value5", ctypes.c_int16),
-                ("offset_value6", ctypes.c_int16),
-                ("offset_value7", ctypes.c_int16),
-                ("offset_value8", ctypes.c_int16),
-                ("offset_value9", ctypes.c_int16),
-                ("offset_value10", ctypes.c_int16),
-                ("offset_value11", ctypes.c_int16),
-                ("end_flag", ctypes.c_uint32)]
-
-
-class HexapodStructure(ctypes.Structure):
-    _pack_ = 1
-    _fields_ = [("start_flag", ctypes.c_uint32),
-                ("message_length", ctypes.c_int32),
-                ("command_serial_number", ctypes.c_int32),
-                ("command", ctypes.c_int16),
-                ("fashion", ctypes.c_int16),
-                ("mode_lin", ctypes.c_int16),
-                ("anzahl_lin", ctypes.c_uint16),
-                ("phase_lin", ctypes.c_double),
-                ("p_xlin", ctypes.c_double),
-                ("p_ylin", ctypes.c_double),
-                ("p_zlin", ctypes.c_double),
-                ("v_lin", ctypes.c_double),
-                ("mode_rot", ctypes.c_int16),
-                ("anzahl_rot", ctypes.c_uint16),
-                ("phase_rot", ctypes.c_double),
-                ("p_xrot", ctypes.c_double),
-                ("p_yrot", ctypes.c_double),
-                ("p_zrot", ctypes.c_double),
-                ("v_rot", ctypes.c_double),
-                ("end_flag", ctypes.c_uint32)]  # DWORD
-
-
-class PolarStructure(ctypes.Structure):
-    _pack_ = 1
-    _fields_ = [("start_flag", ctypes.c_uint32),
-                ("message_length", ctypes.c_int32),
-                ("command_serial_number", ctypes.c_int32),
-                ("command", ctypes.c_int16),
-                ("mode", ctypes.c_int16),
-                ("p_soll", ctypes.c_double),
-                ("v_cmd", ctypes.c_double),
-                ("end_flag", ctypes.c_uint32)]
-
-
-class BasicStructure(ctypes.Structure):
-    """
-    BasicStructure is used to get the command value of the structure as it
-    is the identifier that tells us what real Structure class to use. This
-    structure only unpacks the first 4 values, the rest are lost.
-    """
-    _pack_ = 1
-    _fields_ = [("start_flag", ctypes.c_uint32),
-                ("message_length", ctypes.c_int32),
-                ("command_serial_number", ctypes.c_int32),
-                ("command", ctypes.c_int16)]
 
 
 if __name__ == '__main__':
