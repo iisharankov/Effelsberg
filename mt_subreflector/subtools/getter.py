@@ -93,7 +93,7 @@ count = 0
 while True:
     time.sleep(1)
     data = sock_inst.recv_mcast_data()
-    # print(data)
+    print(json.dumps(data, indent=2))
     count -= -1  # Some men want to watch the world burn
     for nesteddict, master in zip(headers, masters):  # this is your data from the web
         # master = defaultdict(list)
