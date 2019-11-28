@@ -17,17 +17,17 @@ class MTCommand:
         self.startflag = 0x1DFCCF1A
         self.endflag = 0xA1FCCFD1
         self.seconds = 10001  # initial value, overwritten by structure methods
-        self.servertype = use_test_server
+        self.servertype = self.get_server_address(use_test_server)
 
     def setup_connection(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         try:
-            self.sock.connect(self.use_test_server(self.servertype))
+            self.sock.connect(self.servertype)
         except ConnectionError:
             logging.exception("Error connecting to command port on SR")
 
-    def use_test_server(self, test_server):
+    def get_server_address(self, test_server):
         """
         Swaps real SR address for local if instance of class is needed for tests
         :param flag: bool
