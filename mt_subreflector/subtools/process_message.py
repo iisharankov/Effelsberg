@@ -1,4 +1,5 @@
 import json
+import ctypes
 import struct
 import logging
 
@@ -1373,3 +1374,89 @@ def encode_struct(header, il, power, polar, hxpd, focus,
     data += struct.pack("=2BI", *last)
 
     return data
+
+
+
+# # # # # # # # STRUCTURE CLASSES # # # # # # # #
+class InterlockStructure(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [("start_flag", ctypes.c_uint32),
+                ("message_length", ctypes.c_int32),
+                ("command_serial_number", ctypes.c_int32),
+                ("command", ctypes.c_int16),
+                ("mode", ctypes.c_int16),
+                ("elevation", ctypes.c_double),
+                ("reserved", ctypes.c_double),
+                ("end_flag", ctypes.c_uint32)]
+
+
+class AsfStructure(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [("start_flag", ctypes.c_uint32),
+                ("message_length", ctypes.c_int32),
+                ("command_serial_number", ctypes.c_int32),
+                ("command", ctypes.c_int16),
+                ("mode", ctypes.c_int16),
+                ("offset_dr_nr", ctypes.c_int16),
+                ("offset_active", ctypes.c_uint16),
+                ("offset_value1", ctypes.c_int16),
+                ("offset_value2", ctypes.c_int16),
+                ("offset_value3", ctypes.c_int16),
+                ("offset_value4", ctypes.c_int16),
+                ("offset_value5", ctypes.c_int16),
+                ("offset_value6", ctypes.c_int16),
+                ("offset_value7", ctypes.c_int16),
+                ("offset_value8", ctypes.c_int16),
+                ("offset_value9", ctypes.c_int16),
+                ("offset_value10", ctypes.c_int16),
+                ("offset_value11", ctypes.c_int16),
+                ("end_flag", ctypes.c_uint32)]
+
+
+class HexapodStructure(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [("start_flag", ctypes.c_uint32),
+                ("message_length", ctypes.c_int32),
+                ("command_serial_number", ctypes.c_int32),
+                ("command", ctypes.c_int16),
+                ("fashion", ctypes.c_int16),
+                ("mode_lin", ctypes.c_int16),
+                ("anzahl_lin", ctypes.c_uint16),
+                ("phase_lin", ctypes.c_double),
+                ("p_xlin", ctypes.c_double),
+                ("p_ylin", ctypes.c_double),
+                ("p_zlin", ctypes.c_double),
+                ("v_lin", ctypes.c_double),
+                ("mode_rot", ctypes.c_int16),
+                ("anzahl_rot", ctypes.c_uint16),
+                ("phase_rot", ctypes.c_double),
+                ("p_xrot", ctypes.c_double),
+                ("p_yrot", ctypes.c_double),
+                ("p_zrot", ctypes.c_double),
+                ("v_rot", ctypes.c_double),
+                ("end_flag", ctypes.c_uint32)]  # DWORD
+
+
+class PolarStructure(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [("start_flag", ctypes.c_uint32),
+                ("message_length", ctypes.c_int32),
+                ("command_serial_number", ctypes.c_int32),
+                ("command", ctypes.c_int16),
+                ("mode", ctypes.c_int16),
+                ("p_soll", ctypes.c_double),
+                ("v_cmd", ctypes.c_double),
+                ("end_flag", ctypes.c_uint32)]
+
+
+class BasicStructure(ctypes.Structure):
+    """
+    BasicStructure is used to get the command value of the structure as it
+    is the identifier that tells us what real Structure class to use. This
+    structure only unpacks the first 4 values, the rest are "lost".
+    """
+    _pack_ = 1
+    _fields_ = [("start_flag", ctypes.c_uint32),
+                ("message_length", ctypes.c_int32),
+                ("command_serial_number", ctypes.c_int32),
+                ("command", ctypes.c_int16)]
