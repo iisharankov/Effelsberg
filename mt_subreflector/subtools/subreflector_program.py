@@ -8,17 +8,16 @@ import threading
 import socketserver
 
 from . import mtcommand, subreflector_client
-
 # Constants
 UDPTELNET_PORT = ***REMOVED***
 SDH_PORT = 1602  # Port where sdh output can be reached
 SR_MULTI = ***REMOVED***  # Port where subreflector_client.py outputs JSON
 LOCAL_ADDRESS = ''  # local IP
-
+ISTESTSERVER = True
 MULTICAST = ('***REMOVED***', ***REMOVED***)
 
 
-__all__ = ['start_server']
+# __all__ = ['start_server']
 
 class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     """
@@ -35,8 +34,7 @@ class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
         self.udp_parser_client = UDPCommandParser(self.sr_client,
                                                   is_test_server)
         logging.debug("Initialized ThreadingUDPServer")
-        self.helll = "hello"
-        # self.start_sr_client()
+
 
 
 def start_udp_server(sr_client, is_test_server):
@@ -58,9 +56,10 @@ def start_udp_server(sr_client, is_test_server):
     logging.debug(f"ThreadingUDPServer now running in a non-daemon "
                   f"thread ({threading.current_thread}) in background")
     t.start()
+    return server
 
 
-def start_connections(is_test_server):
+def start_server(is_test_server):
     """
     Start connections does just that, it connects to two servers. One is in
     subreflector_client.py which directly connects to the output of the
@@ -72,28 +71,38 @@ def start_connections(is_test_server):
     the instance of the sr_client to be able to control/reset the connection.
     :return: N/a
     """
+
+    logging.basicConfig(filename='subreflector_program_debug.log',
+                        filemode='w', level=logging.DEBUG,
+                        format='%(asctime)s - %(levelname)s - %(thread)d - '
+                               '%(module)s - %(funcName)s- %(message)s',
+                        datefmt='%d-%b-%y %H:%M:%S')
+
     try:
 
         # makes sure parameter is bool or int (bool is subclass of int)
         assert isinstance(is_test_server, int)
         # def start_sr_client(self):
-        logging.debug("Start Startup_Subreflector_Client instance")
-        sr_client = StartupSubreflectorClient(is_test_server)
-        sr_client.start_sr_client()
+        # logging.debug("Start Startup_Subreflector_Client instance")
+        # sr_client = StartupSubreflectorClient(is_test_server)
+        # sr_client.start_sr_client()
 
+        sr_client = None
         # sr_client = subreflector_client.SubreflectorClient(is_test_server)
         # sr_client.main()EFFELSBERG:MTSUBREFLECTOR:OTHER:RESETCONNECTION
 
         logging.debug("Start UDP server instance")
-        start_udp_server(sr_client, is_test_server)
+        udp_client = start_udp_server(sr_client, is_test_server)
 
-    except AssertionError:
+    except AssertionError as E:
         logging.debug("Start connections parameter must be bool, was other")
+        raise E
 
     except Exception as E:
         logging.exception("An exception occurred starting the threaded classes")
         raise E
-
+    else:
+        return sr_client, udp_client
 
 # def close_sr_client(sr_client):
 #     logging.debug("User initiated Subreflector connection reset")
@@ -123,6 +132,12 @@ class StartupSubreflectorClient:
         self.thread = None
         self.stop_threads = False
         self.srclient = subreflector_client.SubreflectorClient(is_test_server)
+
+    def shutdown(self):
+        templock = threading.Lock()
+
+        with templock:
+            self.srclient.shutdown()
 
     def start_sr_client(self):
         """
@@ -158,9 +173,6 @@ class StartupSubreflectorClient:
         logging.debug("User initiated Subreflector connection reset")
         logging.debug(f"{threading.enumerate()}")
         self.thread.join()
-        # endsocketthread = threading.Thread(target=)
-        # endsocketthread.start()
-        # endsocketthread.join()
         self.srclient.end_connection()
         logging.debug(f"{threading.enumerate()}")
 
@@ -194,6 +206,7 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
 
         self.server.udp_parser_client.probe_command(telnet_msg)
         self.msg = self.server.udp_parser_client.return_message()
+        print(self.msg)
         self.msg.append('\nend')
         ###############################
         # print(self.server.helll)
@@ -607,7 +620,7 @@ class UDPCommandParser:
         if "GETABS" in subcommand:
             logging.debug("Polar get absolute positions command given")
             positions = self.mcast_receiver.get_polar_position()
-            msg = f"\n P_soll[deg]: {positions[0]},"
+            msg = f"\n P_soll[deg]: {positions},"
             self.msg.append(msg)
 
         elif "IGNORE" in subcommand:
@@ -761,8 +774,8 @@ class MulticastReceiver:
             multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
 
             self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
-
-            print(self.data["status-data-active-surface"]["Elevation-angle[deg]"])
+            # print("test")
+            # print("tesT", self.data["status-data-active-surface"]["Elevation-angle[deg]"])
 
         except OSError or ConnectionError as E:
             logging.exception(f"Error occurred receiving multicast data: {E}")
@@ -795,10 +808,9 @@ class MulticastReceiver:
             self.deepcopy_mcast_data()
 
         except Exception as E:
-            msg = "There was an exception receiving and processing a " \
-                  "multicast message from the subreflector."
+            msg = f"There was an exception receiving and processing a " \
+                  f"multicast message from the subreflector. {E}"
             logging.exception(msg)
-            print(msg, E)
 
     # def find_diferences(self):
     #     self.assert_static_data()
@@ -831,12 +843,13 @@ class MulticastReceiver:
 
     def get_elevation(self):
         self.get_new_status()
-        mcast_data = self.mcast_data  # local to prevent race condition
 
-        elevation = mcast_data["status-data-active-surface"] \
-            ["Elevation-angle[deg]"]
+        mcast_data = self.mcast_data  # local to prevent race condition
+        elevation = mcast_data["status-data-active-surface"]["elevation-angle[deg]"]
         return elevation
 
+    # pm = json.loads(processed_msg)
+    # print(pm["status-data-active-surface"]["elevation-angle[deg]"])
     def get_polar_position(self):
         self.get_new_status()
         mcast_data = self.mcast_data  # local to prevent race condition
@@ -911,11 +924,6 @@ class MulticastReceiver:
         return flag_for_linear, flag_for_rotation
 
 
-def start_server(use_test_server):
-    logging.basicConfig(filename='subreflector_program_debug.log',
-                        filemode='w', level=logging.DEBUG,
-                        format='%(asctime)s - %(levelname)s - %(thread)d - '
-                               '%(module)s - %(funcName)s- %(message)s',
-                        datefmt='%d-%b-%y %H:%M:%S')
 
-    start_connections(use_test_server)
+if __name__ == '__main__':
+    start_server(ISTESTSERVER)
