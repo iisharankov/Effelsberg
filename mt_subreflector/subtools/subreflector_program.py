@@ -7,7 +7,7 @@ import logging
 import threading
 import socketserver
 
-from subtools import mtcommand, subreflector_client, config
+from . import mtcommand, subreflector_client, config
 
 
 def main():
