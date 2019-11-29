@@ -5,10 +5,10 @@ import socket
 import struct
 from collections import defaultdict
 
+from .config import MULTICAST_IP, MULTICAST_PORT
 
-MULTICAST = '***REMOVED***'
-MULTIPORT = ***REMOVED***
-MULTICAST_GROUP = '***REMOVED***'
+
+
 
 # TODO: Compare with multicast in python files, also:
 # isharankov@be2:/opt/operatorguis/MCServer$ less MulticastDataServer.py
@@ -24,11 +24,11 @@ class GetterClass:
     def init_multicast(self):
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            server_address = ('', MULTIPORT)
+            server_address = ('', MULTICAST_PORT)
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.sock.bind(server_address)
 
-            group = socket.inet_aton(MULTICAST_GROUP)
+            group = socket.inet_aton(MULTICAST_IP)
             mreq = struct.pack('4sL', group, socket.INADDR_ANY)
             self.sock.setsockopt(socket.IPPROTO_IP,
                                  socket.IP_ADD_MEMBERSHIP, mreq)
@@ -59,12 +59,12 @@ def sdh_multicast():
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
 
-        server_address = ('', MULTIPORT)  # sdh json
+        server_address = ('', MULTICAST_PORT)  # sdh json
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(server_address)
 
 
-        group = socket.inet_aton(MULTICAST_GROUP)
+        group = socket.inet_aton(MULTICAST_IP)
         mreq = struct.pack('4sL', group, socket.INADDR_ANY)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
         multicastdata_bytes, address = sock.recvfrom(300_000)

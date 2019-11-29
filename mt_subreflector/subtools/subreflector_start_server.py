@@ -1,15 +1,12 @@
-from subtools.subreflector_program import start_server
+from subtools.subreflector_program import main as program_main
 
 
-def main(*args, **kwargs):
-
-    # import argparse
+def main():
 
     # parse arguments
-    USETESTSERVER = True
-    start_server(USETESTSERVER)
+    use_test_server = True
+    program_main(use_test_server)
 
 
 if __name__ == '__main__':
-
     main()

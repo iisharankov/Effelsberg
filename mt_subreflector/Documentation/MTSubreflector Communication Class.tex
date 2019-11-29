@@ -87,7 +87,9 @@ Due to the short time frame of the project, and since some of the concepts I use
 This is a known bug, though to my knowledge, it does not impede or affect any of the code other than a socket time out. This only happens once, which is during the very first call to reset the connection with the subreflector. At time of writing, that is with the command EFFELSBERG:MTSUBREFLECTOR:OTHER:RESETCONNECTION. Once called, a method in the main program (subreflector\_program.py) that 
 calls a method in subreflector\_client.py, which triggers a flag that starts the cleanup process of closing the socket. Once this is complete, the initial method from the main program then calls make\_connection, which reconnects to the subreflector. The issue is that the first time this happens, the handler thread that returns messages to the user is blocked, and a socket timeout is reached. The connection is still reset, but due to the timeout exception, it seems like it is not. This only occurs on the first instance of RESETCONNECTION, and not subsequent ones. After some debugging, I discovered this is because two threads alternate control of the handler, this can be seen by the debug log, and taking not of the thread ID and how they swap. To my understanding this is an issue with an improper implementation of the threading, which proved to be a difficult module to implement correctly, including proper mutex and thread safe code; as it is very easy to implement threading incorrectly.
 
-\subsection{ }
+\subsection{Pytest Testing Issues}
+
+Some of these fixes are ongoing and may be changed in the coming weeks as I wrap up the project. Currently, there are issues with using Pytest to run tests on the program. After some fixes to structuring, I've discovered that the tests are not consistent, (i.e. sometimes they run and pass, and then right after will fail if re-ran). This is in part due to the usage of threaded sockets and servers. For example, a test was made that would send a command like ``EFFELSBERG:MTSUBREFLECTOR:INTERLOCK:SET 10''  to 
 
 
 

@@ -8,18 +8,18 @@ import struct
 import logging
 import threading
 
-from . import process_message
-SR_ADDR = "***REMOVED***"
-LOCAL_ADDR = '***REMOVED***'
-SR_PORT = ***REMOVED***
+from . import process_message, config
+from .config import SR_IP, SR_READ_PORT, LOCAL_IP
+
+
 MULTICAST = ('***REMOVED***', ***REMOVED***)
 
 class SubreflectorClient:
 
-    def __init__(self, use_test_server=False):
+    def __init__(self):
         self.sock = None
         self.lock = threading.Lock()
-        self.chosen_server = self.get_server_adderss(use_test_server)
+        self.chosen_server = self.get_server_adderss(config.USE_TEST_SERVER)
         self.connection_flag = False
         self.starttime = time.time()
         self.mcast_queue = queue.LifoQueue(maxsize=10)
@@ -48,14 +48,14 @@ class SubreflectorClient:
             msg = "Connecting to local subreflector in MockSubreflector.py"
             print(msg)
             logging.debug(msg)
-            return LOCAL_ADDR, SR_PORT
+            return LOCAL_IP, SR_READ_PORT
 
         else:
-            msg = f"Connecting to mt_subreflector. IP: {SR_ADDR} - " \
-                  f"Port: {SR_PORT}"
+            msg = f"Connecting to mt_subreflector. IP: {SR_IP} - " \
+                  f"Port: {SR_READ_PORT}"
             print(msg)
             logging.debug(msg)
-            return SR_ADDR, SR_PORT
+            return SR_IP, SR_READ_PORT
 
     def make_connection(self):
         """
@@ -219,4 +219,4 @@ if __name__ == '__main__':
         level=logging.DEBUG, format='%(asctime)s - %(levelname)s- %(message)s',
         datefmt='%d-%b-%y %H:%M:%S')
 
-    SubreflectorClient(use_test_server=True).main()
+    SubreflectorClient().main()

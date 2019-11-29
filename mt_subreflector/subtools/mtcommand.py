@@ -4,28 +4,27 @@ import ctypes
 import logging
 import datetime
 
-SR_ADDR = '***REMOVED***'
-SR_PORT = ***REMOVED***
-BUFFER_SIZE = ***REMOVED***
+from . import config
 
 
 class MTCommand:
-    def __init__(self, use_test_server):
+    def __init__(self):
         # Initializes the socket to the Subreflector
         self.structure = None
         self.msg = None
         self.startflag = 0x1DFCCF1A
         self.endflag = 0xA1FCCFD1
         self.seconds = 10001  # initial value, overwritten by structure methods
-        self.servertype = self.get_server_address(use_test_server)
+        self.servertype = self.get_server_address(config.USE_TEST_SERVER)
 
-    def setup_connection(self):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def start_mtcommand(self):
 
         try:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.connect(self.servertype)
-        except ConnectionError:
-            logging.exception("Error connecting to command port on SR")
+
+        except ConnectionError as E:
+            logging.exception("Error connecting to command port on SR", E)
 
     def get_server_address(self, test_server):
         """
@@ -38,13 +37,13 @@ class MTCommand:
         if test_server:
             msg = "Connected to local subreflector in MockSubreflector.py"
             logging.debug(msg)
-            return '', SR_PORT
+            return config.LOCAL_IP, config.SR_WRITE_PORT
 
         else:
-            msg = f"Connected to mt_subreflector. IP: {SR_ADDR} - " \
-                  f"Port: {SR_PORT}"
+            msg = f"Connected to mt_subreflector. IP: {config.SR_IP} - " \
+                  f"Port: {config.SR_WRITE_PORT}"
             logging.debug(msg)
-            return SR_ADDR, SR_PORT
+            return config.SR_IP, config.SR_WRITE_PORT
 
     def send_command(self, command):
         # Sends the given command though the socket to the Subreflector
@@ -55,10 +54,6 @@ class MTCommand:
             self.sock.send(command)
         except ConnectionError or BrokenPipeError as E:
             self.msg = f"There was a socket error: {E}"
-
-        # else:
-        #     print(self.unpack())
-
 
     @staticmethod
     def pack(ctype_instance):
@@ -563,7 +558,15 @@ class MTCommand:
             data = (cmd_polar, fashion, p_soll, v_cmd)
             self.encapsulate_command("polar", data)
     
-    # # # # # # # # # # # # # # # #
+    # # # # # Rest of the commands # # # # #
+    """ 
+    After discussions, the rest of the commands were decided to be left out.
+    But they can easily be added here, and so long as you make a proper method
+    to structure the command type following an example above like 
+    interlock_command_to_struct, and add the new type as a elif line in 
+    self.encapsulate_command section, any additions should be straight forward.
+    """
+
     def irig_b_system(self, fashion_value, time_offset_mode=3):
         try:
             assert time_offset_mode == 3 or time_offset_mode == 4
@@ -578,5 +581,9 @@ class MTCommand:
             data = (cmd_time, fashion, time_offset, reserve)
             self.encapsulate_command('unknown', data)
 
+    #
     def close(self):
         self.sock.close()
+
+if __name__ == '__main__':
+    MTCommand().start_mtcommand()
