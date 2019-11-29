@@ -7,59 +7,10 @@ import logging
 import threading
 import socketserver
 
-from . import mtcommand, subreflector_client
-# Constants
-UDPTELNET_PORT = ***REMOVED***
-SDH_PORT = 1602  # Port where sdh output can be reached
-SR_MULTI = ***REMOVED***  # Port where subreflector_client.py outputs JSON
-LOCAL_ADDRESS = ''  # local IP
-ISTESTSERVER = True
-MULTICAST = (***REMOVED***, ***REMOVED***)
+from subtools import mtcommand, subreflector_client, config
 
 
-# __all__ = ['start_server']
-
-class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
-    """
-          Simple class that starts listening to the udp-telnet server for
-          any incoming messages. These messages are then accessed and received
-          by MYUDPHandler which calls the necessarily class to parse the user
-          input. This is set up as a non-daemon thread to work in the
-          background, and to hang until closed manually.
-          """
-
-    def __init__(self, sr_client, is_test_server, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.sr_client = sr_client
-        self.udp_parser_client = UDPCommandParser(self.sr_client,
-                                                  is_test_server)
-        logging.debug("Initialized ThreadingUDPServer")
-
-
-
-def start_udp_server(sr_client, is_test_server):
-    """
-    This function sets up a non-daemon thread to initiate the
-    ThreadingUDPserver in the background. This is the code
-    that connects to the server to read the input data and parse it
-    :return:
-    """
-    dest_address = (LOCAL_ADDRESS, UDPTELNET_PORT)
-    logging.debug(f"ThreadingUDPServer accessing address:"
-                  f" {dest_address[0]}, port: {dest_address[1]}")
-    server = ThreadingUDPServer(sr_client, is_test_server,
-                                dest_address, MyUDPHandler, )
-
-    logging.debug(f"Setting server to run forever")
-    t = threading.Thread(target=server.serve_forever, name='UDPSERVER')
-    t.daemon = False  # Do not demonize thread
-    logging.debug(f"ThreadingUDPServer now running in a non-daemon "
-                  f"thread ({threading.current_thread}) in background")
-    t.start()
-    return server
-
-
-def start_server(is_test_server):
+def main():
     """
     Start connections does just that, it connects to two servers. One is in
     subreflector_client.py which directly connects to the output of the
@@ -81,18 +32,14 @@ def start_server(is_test_server):
     try:
 
         # makes sure parameter is bool or int (bool is subclass of int)
-        assert isinstance(is_test_server, int)
-        # def start_sr_client(self):
-        # logging.debug("Start Startup_Subreflector_Client instance")
-        # sr_client = StartupSubreflectorClient(is_test_server)
-        # sr_client.start_sr_client()
+        assert isinstance(config.USE_TEST_SERVER, int)
 
-        sr_client = None
-        # sr_client = subreflector_client.SubreflectorClient(is_test_server)
-        # sr_client.main()EFFELSBERG:MTSUBREFLECTOR:OTHER:RESETCONNECTION
+        logging.debug("Start Startup_Subreflector_Client instance")
+        sr_client = SRClientModule()
+        sr_client.start_sr_client()
 
         logging.debug("Start UDP server instance")
-        udp_client = start_udp_server(sr_client, is_test_server)
+        udp_client = initialize_threaded_udp_server(sr_client)
 
     except AssertionError as E:
         logging.debug("Start connections parameter must be bool, was other")
@@ -101,26 +48,13 @@ def start_server(is_test_server):
     except Exception as E:
         logging.exception("An exception occurred starting the threaded classes")
         raise E
+
     else:
         return sr_client, udp_client
 
-# def close_sr_client(sr_client):
-#     logging.debug("User initiated Subreflector connection reset")
-#     logging.debug(f"{threading.enumerate()}")
-#
-#     endsocketthread = threading.Thread(target=sr_client.end_connection)
-#     endsocketthread.start()
-#     endsocketthread.join()
-#
-#     logging.debug(f"{threading.enumerate()}")
-#
-#     #
-#     time.sleep(2)
-#     logging.debug("Starting connection again")
-#     sr_client.make_connection()
+# # # # # # # # Necessary class to initalize SR receiver module # # # # # # # #
 
-
-class StartupSubreflectorClient:
+class SRClientModule:
     """
     Simple class that correctly starts up the subreflectorclient.py script
     in a thread so it can process data from the MT Subreflector in real time.
@@ -128,10 +62,10 @@ class StartupSubreflectorClient:
     until closed manually.
     """
 
-    def __init__(self, is_test_server):
+    def __init__(self):
         self.thread = None
         self.stop_threads = False
-        self.srclient = subreflector_client.SubreflectorClient(is_test_server)
+        self.srclient = subreflector_client.SubreflectorClient()
 
     def shutdown(self):
         templock = threading.Lock()
@@ -181,12 +115,53 @@ class StartupSubreflectorClient:
         logging.debug("Starting connection again")
         self.srclient.make_connection()
 
+# # # # # # # # # Necessary Classes/functions for link to user # # # # # # # # #
 
-# Communication class
+class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
+    """
+          Simple class that starts listening to the udp-telnet server for
+          any incoming messages. These messages are then accessed and received
+          by MYUDPHandler which calls the necessarily class to parse the user
+          input. This is set up as a non-daemon thread to work in the
+          background, and to hang until closed manually.
+          """
+
+    def __init__(self, sr_client, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.udp_parser_client = UDPCommandParser(sr_client)
+        logging.debug("Initialized ThreadingUDPServer")
+
+
+def initialize_threaded_udp_server(sr_client):
+    """
+    This function sets up a non-daemon thread to initiate the
+    ThreadingUDPServer in the background. This is the code
+    that connects to the server to read the input data and parse it
+    :return:
+    """
+
+    logging.debug(f"ThreadingUDPServer accessing address:"
+                  f" {config.LOCAL_IP}, port: {config.UDP_CLIENT_PORT}")
+    server = ThreadingUDPServer(sr_client,
+                                (config.LOCAL_IP, config.UDP_CLIENT_PORT),
+                                MyUDPHandler, )
+
+    logging.debug(f"Setting server to run forever")
+    t = threading.Thread(target=server.serve_forever, name='UDPSERVER')
+    t.daemon = False  # Do not demonize thread
+
+    logging.debug(f"ThreadingUDPServer now running in a deamon={t.daemon} "
+                  f"thread ({threading.current_thread}) in background")
+
+    t.start()
+    return server
+
+
+# # # # # # # # # # # # # # # Communication class # # # # # # # # # # # # # #
 class MyUDPHandler(socketserver.BaseRequestHandler):
     """
-    This is the class that is instantiated in UDPServer as a thread.
-    This works on the functionality of socketserver, and the handle
+    This is the class that is instantiated in initialize_threaded_udp_server as
+    a thread. This works on the functionality of socketserver, and the handle
     method listens to any incoming message on the IP/Port combo and passes it
     through to a different class which is responsible for parsing the message
     and forwarding it to mtcommand.py, which directly communicates to the
@@ -197,27 +172,19 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
         self.msg = []
 
     def handle(self):
-        logging.debug("#" * 50)
-        logging.debug("Telnet: Message received from udp-telnet")
+        logging.debug("#" * 50, "Telnet: Message received from udp-telnet")
         # takes message, decodes to string and - all whitespace (by rejoining)
         telnet_msg = self.request[0].decode('utf-8')
-        # print(telnet_msg)
-        # telnet_msg = ''.join(self.request[0].decode('utf-8').split())
 
         self.server.udp_parser_client.probe_command(telnet_msg)
         self.msg = self.server.udp_parser_client.return_message()
-        print(self.msg)
         self.msg.append('\nend')
-        ###############################
-        # print(self.server.helll)
+        logging.debug(f"All messages are: {self.msg}")
 
         logging.debug("Telnet: Setting up returnsocket")
         returnsocket = self.request[1]
-        logging.debug(f"All messages are: {self.msg}")
-
         for each_msg in self.msg:
             returnsocket.sendto(each_msg.encode(), self.client_address)
-
         logging.debug("#" * 50)
 
 
@@ -228,27 +195,18 @@ class UDPCommandParser:
     TODO: Complete doc string
     """
 
-    def __init__(self, sr_client, is_test_server):
-        """
-        :param sr_client: object
-            instance of the StartupSubreflectorClient class
-        """
-        # Proper PEP-8 form has these defined here
+    def __init__(self, sr_client):
+
         self.msg = []  # Message given back to user
         self.obsprefix = None  # prefix found while parsing user command
         self.commandprefix = None  # prefix found while parsing user command
 
         # These are instances that are used within methods
         self.mcast_receiver = MulticastReceiver()  # For recieving data from SR
-        # self.mcast_receiver = threading.Thread(
-        #     target=MulticastReceiver, args=(), name="Mcast Receiver")
-        # self.mcast_receiver.daemon = False
-        # self.mcast_receiver.start()
-        # self.mcast_receiver.join()
 
         # Sending commands to SR
-        self.mtcommand_client = mtcommand.MTCommand(is_test_server)
-        self.mtcommand_client.setup_connection()
+        self.mtcommand_client = mtcommand.MTCommand()
+        self.mtcommand_client.start_mtcommand()
         self.sr_client = sr_client
 
     # # # # # General parsing section # # # # #
@@ -689,25 +647,12 @@ class UDPCommandParser:
     def reset_connections(self):
         logging.debug("User initiated connection reset to server")
         self.sr_client.close_sr_client()
-        # close_sr_client(self.sr_client)
         self.msg.append("Connection reset successfully")
-
-        #
-        # if srclient.srclient.sock.fileno() == -1:
-        #     logging.debug("Connection severed")
-        # else:
-        #     logging.error("Socket closed but fileno did not return -1")
-        #
-        # # srclient.srclient.make_connection()
-        #
-        # # srclient.thread.join()
-        # logging.debug("Connection reestablished")
 
     def return_message(self):
         return self.msg
 
 
-# TODO This class is not functioning yet after restructure. FIX!
 class MulticastReceiver:
     """
     This class handles the receiving of the output data from the MT Subreflector
@@ -736,9 +681,9 @@ class MulticastReceiver:
 
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.sock.bind(MULTICAST)
+            self.sock.bind((config.MULTICAST_IP, config.MULTICAST_PORT))
 
-            group = socket.inet_aton(MULTICAST[0])
+            group = socket.inet_aton(config.MULTICAST_IP)
             mreq = struct.pack('4sL', group, socket.INADDR_ANY)
             self.sock.setsockopt(socket.IPPROTO_IP,
                                  socket.IP_ADD_MEMBERSHIP, mreq)
@@ -767,6 +712,8 @@ class MulticastReceiver:
         try:
             logging.debug("Recieved new multicast packet")
 
+            # Multicast bug: has buffer of 4, and new status isn't added
+            # unless there is space, so these blocks go through the queue
             multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
             multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
             multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
@@ -774,7 +721,7 @@ class MulticastReceiver:
             multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
 
             self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
-            # print("test")
+
             # print("tesT", self.data["status-data-active-surface"]["Elevation-angle[deg]"])
 
         except OSError or ConnectionError as E:
@@ -848,8 +795,6 @@ class MulticastReceiver:
         elevation = mcast_data["status-data-active-surface"]["elevation-angle[deg]"]
         return elevation
 
-    # pm = json.loads(processed_msg)
-    # print(pm["status-data-active-surface"]["elevation-angle[deg]"])
     def get_polar_position(self):
         self.get_new_status()
         mcast_data = self.mcast_data  # local to prevent race condition
@@ -872,7 +817,6 @@ class MulticastReceiver:
         hxpd_zrot = mcast_data[hxpd_header]["current_position_z_rotation[deg]"]
         return (hxpd_xlin, hxpd_ylin, hxpd_zlin,
                 hxpd_xrot, hxpd_yrot, hxpd_zrot)
-
 
     def check_hexapod_activated(self):
         self.get_new_status()
@@ -923,7 +867,5 @@ class MulticastReceiver:
 
         return flag_for_linear, flag_for_rotation
 
-
-
 if __name__ == '__main__':
-    start_server(ISTESTSERVER)
+    main()

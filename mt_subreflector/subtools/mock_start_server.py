@@ -1,9 +1,9 @@
-from subtools.mock_subreflector import start_mock_server
+from subtools.mock_subreflector import main as mock_main
 
 
 def main(*args, **kwargs):
 
-    start_mock_server()
+    mock_main()
 
 
 if __name__ == '__main__':
