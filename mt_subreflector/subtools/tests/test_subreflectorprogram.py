@@ -5,13 +5,10 @@ import socket
 import ctypes
 import time
 
-from subtools import mock_subreflector, subreflector_program, process_message
-from subtools import start_mock_server, Receiver as MockReceiver, start_server
+from . import mock_subreflector, subreflector_program, process_message
+from . import start_mock_server, Receiver as MockReceiver, initialize_threaded_udp_server
 
-SUBREF_ADDR = "***REMOVED***"
-SUBREF_READ_PORT = ***REMOVED***
-SUBREF_WRITE_PORT = ***REMOVED***
-buffer_size = ***REMOVED***
+
 
 # myPath = os.path.dirname(os.path.abspath(__file__))
 # sys.path.insert(0, myPath + '/../')
@@ -46,18 +43,23 @@ def mock_connection():
     destination_address = ('', ***REMOVED***)
     sock.sendto(str.encode("\n"), destination_address)
 
-    sr_client, udp_client = start_server(True)
+
+
 
     mock_sr = MockReceiver()
-    thread_mock = start_mock_server(mock_sr)
+    start_mock_server(mock_sr)
 
+    udp_client = initialize_threaded_udp_server(None, True)
     yield (sock, mock_sr, destination_address)
+
     print("Finished the server")
-    # udp_client.shutdown()
+    # import pdb; pdb.set_trace()
+    udp_client.shutdown()
     print('killed udp_client')
-    # mock_sr.shutdown()
+
+    mock_sr.shutdown()
     print('killed mock_sr')
-    # sr_client.shutdown()
+    # # sr_client.shutdown()
     #
     # print('killed sr_client')
 
@@ -75,13 +77,20 @@ class TestCanTest():
     def test_can_send_elevation(self, mock_connection):
         sock, mock_sr, destination_address = mock_connection
 
-        assert mock_sr.elevation == None
-        assert mock_sr.unpacked_data == 61
+
+        # assert mock_sr.unpacked_data == 61
         data = 'EFFELSBERG:MTSUBREFLECTOR:INTERLOCK:SET 10'
         sock.sendto(str.encode(data), destination_address)
-
+        time.sleep(0.1)
+        assert isinstance(mock_sr, MockReceiver)
         # assert mock_sr.unpacked_data == 50
-        assert mock_sr.elevation == 10
+        # assert mock_sr.unpacked_data.elevation == 10
+        assert mock_sr.interlock_elevation == 10
+
+        data = 'EFFELSBERG:MTSUBREFLECTOR:INTERLOCK:SET 20'
+        sock.sendto(str.encode(data), destination_address)
+        time.sleep(0.1)  #Time.sleep is needed as socket is slower
+        assert mock_sr.interlock_elevation == 20
 
     def test_can_add(self):
         four = 4
@@ -95,10 +104,9 @@ class TestCanTest():
 
         assert data == 'fail'
 
-
-    def test_can_reach(self, mock_connection):
-        sock, mock_sr, destination_address = mock_connection
-        assert mock_sr
-        real = mock_sr.unpacked_data
-        assert real == 61
-
+    #
+    # def test_can_reach(self, mock_connection):
+    #     sock, mock_sr, destination_address = mock_connection
+    #     assert mock_sr
+    #     real = mock_sr.unpacked_data
+    #     assert real == 61
