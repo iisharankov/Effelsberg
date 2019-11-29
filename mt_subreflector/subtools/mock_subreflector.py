@@ -5,17 +5,9 @@ import socket
 import pickle
 import threading
 
-from . import process_message
-
-# __all__ = ['start_mock_server']
+from subtools import process_message, config
 
 
-SUBREF_ADDR = "***REMOVED***"
-SUBREF_READ_PORT = ***REMOVED***
-SUBREF_WRITE_PORT = ***REMOVED***
-buffer_size = ***REMOVED***
-
-# TODO: ADD port ***REMOVED*** to receive commands, copy client.py methods to decode
 # for a, b in zip(sample_msg, origional_way):
 #     # assert np.isclose(a, b, 0.00001)
 #     for x, y in zip(a, b):
@@ -46,13 +38,20 @@ def start_mock_server(my_receiver):
 class Receiver:
 
     def __init__(self):
-        self.unpacked_data = 61
-        self.elevation = None
+        # self.unpacked_data = 61  # TODO method does not replace this???
         self.do_run = True
+
 
     def shutdown(self):
         print('Receiver shutdown')
-        self.do_run = False
+        print(f"The do_run value is {self.do_run}")
+        templock = threading.Lock()
+
+
+        with templock:
+            self.do_run = False
+        print(f"The do_run value is {self.do_run}")
+
 
     @staticmethod
     def unpack(ctype, buf):
@@ -71,31 +70,40 @@ class Receiver:
     def create_socket(self):
         # create TCP/IP socket
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            server_address = (SUBREF_ADDR, SUBREF_WRITE_PORT)
-            print('starting up on %s port %s' % server_address)
-
+            server_address = (config.LOCAL_IP, config.SR_WRITE_PORT)
+            # sock.settimeout(3)
+            sock.setblocking(False)
             # Sets the maximum buffersize of the socket to ***REMOVED***
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_size)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, config.BUFFER_SIZE)
 
             # SO_REUSEADDR tells kernel to use socket even if in TIME_WAIT state
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind(server_address)
+            print('starting up on %s port %s' % server_address)
             sock.listen(2)
 
-            while True:
-                time.sleep(1)
-                # listen for incoming connections (server mode)
-                connection, client_address = sock.accept()
 
-                # intercept SR command to deconstruct
-                while self.do_run:
-                    # time.sleep()
-                    data = connection.recv(buffer_size)
-                    if data:
-                        self.find_structure_type(data)
+            while True:
+
+                # listen for incoming connections (server mode)
+                if not self.do_run:
+                    print("BREAKING")
+                    break
+                try:
+                    connection, client_address = sock.accept()
+                except BlockingIOError:
+                    pass
+                else:
+                    # intercept SR command to deconstruct
+                    while True:
+                        try:
+                            data = connection.recv(config.BUFFER_SIZE)
+                            if data:
+                                self.find_structure_type(data)
+                        except ConnectionError:
+                            break
 
     def find_structure_type(self, data):
-        self.unpacked_data = 50
         # This method unpacks the data message with a
         # BasicStructure class that can extract the command type
 
@@ -117,9 +125,22 @@ class Receiver:
                 unpacked_data = self.unpack(process_message.PolarStructure, data)
                 self.polar_parser(unpacked_data)
             elif _basic_unpack.command == 106:
-                unpacked_data = self.unpack(process_message.InterlockStructure, data)
-                print(unpacked_data.elevation)
-                self.interlock_parser(unpacked_data)
+                self.unpacked_data = self.unpack(process_message.InterlockStructure, data)
+                # print(unpacked_data.elevation)
+                # print("jnvfkjvkjfvjsfvjJNJNEVJINVIEJNVIPJJRF")
+                # print(unpacked_data)
+                # self.dataa = unpacked_data
+                # print(self.dataa.elevation)
+                # print("jnvfkjvkjfvjsfvjJNJNEVJINVIEJNVIPJJRF")
+                print(f"self.unpacked_data.elevation is {self.unpacked_data.elevation}")
+
+                assert self.unpacked_data.command == 106
+                print(f"self.unpacked_data is : {self.unpacked_data}")
+                self.interlock_mode = self.unpacked_data.mode
+                self.interlock_elevation = self.unpacked_data.elevation
+                self.interlock_reserverd = self.unpacked_data.reserved
+
+                # self.interlock_parser()
 
     def asf_parser(self, unpacked_data):
         assert unpacked_data.command == 100
@@ -166,13 +187,10 @@ class Receiver:
         self.interlock_p_soll = unpacked_data.p_soll
         self.interlock_v_cmd = unpacked_data.v_cmd
 
-    def interlock_parser(self, unpacked_data):
-        assert unpacked_data.command == 106
-        self.interlock_mode = unpacked_data.mode
-        self.interlock_elevation = unpacked_data.elevation
-        self.interlock_reserverd = unpacked_data.reserved
-        print("interlock_parser")
-        print(f"{self.interlock_elevation}")
+    # def interlock_parser(self):
+    #     unpacked_data = self.unpacked_data
+
+
 
 
 
@@ -180,16 +198,18 @@ class Receiver:
 def sender():
     # create TCP/IP socket
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        server_address = (SUBREF_ADDR, SUBREF_READ_PORT)
-        print('starting up on %s port %s' % server_address)
+        server_address = (config.LOCAL_IP, config.SR_READ_PORT)
+
 
         # Sets the maximum buffersize of the socket to ***REMOVED***
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_size)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, config.BUFFER_SIZE)
 
         # SO_REUSEADDR tells kernel to use socket even if in TIME_WAIT state
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(server_address)
+        print('starting up on %s port %s' % server_address)
         sock.listen(2)
+
 
         while True:
             # listen for incoming connections (server mode)
@@ -201,7 +221,7 @@ def sender():
             # receive the data in small chunks and print it
             while True:
 
-                data = connection.recv(buffer_size)
+                data = connection.recv(config.BUFFER_SIZE)
                 if data == b"\n":
                     print("Initialization request received")
 
@@ -223,4 +243,4 @@ def sender():
 
 
 if __name__ == '__main__':
-    start_mock_server()
+    main()
