@@ -21,6 +21,7 @@ class MTCommand:
 
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.sock.connect(self.servertype)
 
         except ConnectionError as E:
@@ -37,7 +38,7 @@ class MTCommand:
         if test_server:
             msg = "Connected to local subreflector in MockSubreflector.py"
             logging.debug(msg)
-            return config.LOCAL_IP, config.SR_WRITE_PORT
+            return '', config.SR_WRITE_PORT
 
         else:
             msg = f"Connected to mt_subreflector. IP: {config.SR_IP} - " \
@@ -51,6 +52,8 @@ class MTCommand:
             logging.debug(f"Sending packaged_ctype to Subreflector at "
                           f"address: {self.sock.getsockname()[0]}, "
                           f"port: {self.sock.getsockname()[1]}.")
+
+            # print('\n', command)
             self.sock.send(command)
         except ConnectionError or BrokenPipeError as E:
             self.msg = f"There was a socket error: {E}"
@@ -241,11 +244,12 @@ class MTCommand:
             assert self.structure is not None # Should be changed from above code
             logging.debug("Packing structure to bytes")
             packaged_ctype = self.pack(self.structure)
-            print('\n', packaged_ctype)
+
         except AssertionError as E:
             logging.exception("Structure was not set by relevant"
                               " command_to_struct method, nothing to package")
             print(E)
+
         else:
             self.send_command(packaged_ctype)
 
