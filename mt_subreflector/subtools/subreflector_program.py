@@ -301,7 +301,7 @@ class UDPCommandParser:
                 just_command, str_value = subcommand.strip().split(" ", 1)
                 logging.debug(
                     f"Command given: {just_command}. Value given: {str_value}")
-                value = int(str_value)
+                value = float(str_value)
                 assert 8 <= value <= 90
 
             except AssertionError:
