@@ -1,4 +1,6 @@
 import json
+import time
+import socket
 import ctypes
 import struct
 import logging
@@ -92,7 +94,7 @@ def package_msg(bytes_string):
     Receives a bytes string and decodes it with struct, then parses
     all the values into a JSON dict, then dumps to json string
 
-    :param bytes_string: binary string
+    :param bytes_string: bytes string
         input string from subreflector
     :return: JSON dict
     """
@@ -1300,9 +1302,6 @@ def package_msg(bytes_string):
 
         }
 
-        # print("   ", status_message["status-data-active-surface"]\
-        #                     ["Elevation-angle[deg]"])
-        # Dumps JSON dict to string and encodes to bytes to send over socket
         status_string = json.dumps(status_message, indent=2).encode('utf-8')
         return status_string
 
@@ -1375,6 +1374,34 @@ def encode_struct(header, il, power, polar, hxpd, focus,
 
     return data
 
+
+def recv_msg(sock):
+    """
+    Helper function that listens for messages through a socket until a b'\nend'
+    is received, then stops and returns the list of messages to the user.
+
+    :param sock: socket instance
+    :return: list of str
+    """
+    try:
+
+        messages = []
+        while True:
+            received = sock.recv(4096)
+            time.sleep(0.1)
+
+            if received != b'\nend':
+                messages.append(received.decode('utf-8'))
+                print(f"Received: {received.decode('utf-8')}")
+
+            else:
+                break
+
+    except socket.timeout:
+        print("Socket timed out, Try again")
+
+    else:
+        return messages
 
 
 # # # # # # # # STRUCTURE CLASSES # # # # # # # #
