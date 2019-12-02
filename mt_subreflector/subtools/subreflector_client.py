@@ -20,6 +20,7 @@ class SubreflectorClient:
         self.sock = None
         self.lock = threading.Lock()
         self.chosen_server = self.get_server_adderss(config.USE_TEST_SERVER)
+        print(config.USE_TEST_SERVER)
         self.connection_flag = False
         self.starttime = time.time()
         self.mcast_queue = queue.LifoQueue(maxsize=10)
@@ -46,14 +47,12 @@ class SubreflectorClient:
 
         if test_server:
             msg = "Connecting to local subreflector in MockSubreflector.py"
-            print(msg)
             logging.debug(msg)
             return LOCAL_IP, SR_READ_PORT
 
         else:
             msg = f"Connecting to mt_subreflector. IP: {SR_IP} - " \
                   f"Port: {SR_READ_PORT}"
-            print(msg)
             logging.debug(msg)
             return SR_IP, SR_READ_PORT
 
@@ -180,7 +179,7 @@ class SubreflectorClient:
                     # pickle.dump(full_msg, open("Subreflector_Output.p", 'ab'))
 
 
-                    print(f"\rmessage sent x{count/10}", end='')
+                    # print(f"\rmessage sent x{count/10}", end='')
 
                     processed_msg = process_message.package_msg(full_msg)
 
