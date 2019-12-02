@@ -6,10 +6,14 @@
 \usepackage{listings}
 \usepackage{color}
 
+ \usepackage{float}
+\usepackage{graphicx}
+\graphicspath{ {./images/} }
+
 \definecolor{dkgreen}{rgb}{0,0.5,0}
 \definecolor{gray}{rgb}{0.6,0.6,0}
 \definecolor{mauve}{rgb}{0.58,0,0.82}
-
+\setcounter{secnumdepth}{3}
 \lstset{frame=tb,
   language=Python,
   aboveskip=5mm,
@@ -57,13 +61,19 @@
 The goal of this manual is to give an in-depth explanation regarding the structure of the new MT Subreflector communication program that I have developed over my four months working as an intern at the Effelsberg 100m radio observatory.  Overall, the documentation  is kept in a formal tone; but since this was a personal project (and this document will mainly be kept internally), some sections may use an an informal tone regarding discussions of what I did, why I did it that way, and what my thought process was. 
 
 
-
+\newpage
 \section{Structure Overview}
 
 The main structure of this project can be currently explained between five core modules, and how they communicate and interact with each other. Other modules do exist, like config.py or process\_message.py, but these are mainly helper modules with added functionality that is separated to be used in multiple locations more freely, as a means to clear up clutter in the main modules. The main structure can be seen in the figure below:
 
  \vspace{10pt}
-%% ADD FIGURE HERE
+
+ \begin{figure}[H]
+\includegraphics[width=16cm, height=16cm]{program_diagram}
+\centering
+\end{figure}
+
+
  \vspace{10pt}
 
 Tips for understanding the above diagram. Boxes represent individual modules in the program. Each box is a specific module, with its name given in the box. The top shows the subreflector, and separates the read and write ports on the subreflector.  The arrows show which way data/information is passed between modules. Red arrows represent sockets between two modules, while the dark green arrow between subreflector\_program.py and mtcommand.py represents the method calls being done from subreflector\_program.py. The green dotted line between subreflector\_program.py and subreflector\_client.py represents the fact that subreflector\_client.py is started up in a thread in subreflector\_program.py, such that when subreflector\_program.py is ran, subreflector\_client.py is also setup. The multicast server is represented as a circle, since it is not actually anywhere physical on the system like the modules are.
@@ -108,7 +118,7 @@ This section will aim to give a thorough  explanation of the functionality of ea
 \subsection{user\_client.py}
  With the current setup, this is the only module the user should ever initiate. Everything else is ran and started in their own threads through the input given by the user during the start-up process of user\-client.py. 
  
- \subsubsection{main()}
+ \subsubsection*{main()}
  
  Once run, this module first asks the user for a IP/port combo. The port is checked to be between ***REMOVED*** and 65535, the IP address has no such checking. Currently, the functionality of this program expects the program to be run locally (i.e. on the same machine that user\_client.py is ran), but this can easily be changed in this module when/if the program replaces the current setup and is run on a server. If that is the case, then some edits to this module would make accessing this program remotely (like you do with udp-telnet) possible. This IP address and port combo will try to connect to an instance of the subreflector\_program.py module. As both are local to the same machine, ` ` or `0' both will try to bind to a local socket. `' or `0' should be imputed if the running instance of the program is expected to be locally on that machine. If subreflector\_program.py is on a server somewhere (like with udp-telnet), a different address would be used. The port for communication with the subreflector\_program.py is currently ***REMOVED***. The below lines check if the address given by the user are for the local system. If this is true, ask\_user\_between\_test\_and\_real\_server() is called. 
 
@@ -117,7 +127,7 @@ This section will aim to give a thorough  explanation of the functionality of ea
                     ask_user_between_test_and_real_server()
     \end{lstlisting}
 
-\subsubsection{ask\_user\_between\_test\_and\_real\_server()}
+\subsubsection*{ask\_user\_between\_test\_and\_real\_server()}
 
 This helper function asks the user to return `mock' or `test' if an instance of mock\_subreflector.py should be ran, or `real' if one should not be run as the user wishes to connect to the real subreflector. In either scenario, subreflector\_start\_server.main() is also called, which starts up subreflector\_program.py so that the user messages from user\_client.py actually have a destination to be received at. This logical reasoning can be changed depending how you would like the implementation to work. Once connected, with all the respective modules called to run as well, user\_client.py then runs in an infinite loops asking the user for any inputs, of which all go to the subreflector\_program.py module to be parsed. If a quit() function would be desired for cleanup, here is a useful place to implement one. 
 
@@ -126,18 +136,42 @@ This helper function asks the user to return `mock' or `test' if an instance of 
 This module also uses the recv\_msg() helper function, located in process\_message.py and described in that subsection.
 
 
-
+\newpage
 % % % % % SUBREFLECTOR_PROGRAM MODULE % % % % %
 \subsection{subreflector\_program.py}
 
+\subsubsection*{main}
+
+The main function in this module sets up the logging info, and then tries to start the two threads. The first thread is started by instantiating  the ClientModule class, and then calling the start\_sr\_client() method. The second thread set up a non-daemon thread to initiate the ThreadingUDPServer in the background. This is the code that connects to the user to read the command message and parse it.
 
 
-\subsubsection{check\_if\_command\_sent\_successfully() }
+\subsubsection{ThreadingUDPServer}
 
-To Fill
+This class is part of a set of built-in classes provided with socketserver. It adds threading functionality to a server and does most of the overhead for you. Only special thing to note here which deviates from the standard socketserver implementation of a ThreadedUDPServer is the instance variable self.command\_parser, which instantiates a CommandParser so MyUDPHandler can access it.
+
+
+\subsubsection{ClientModule}
+The ThreadedUDPServer class is started in a basic thread with threading.Thread(target=....). This approach is not used with the subreflector\_client.py  module as ClientModule needs to be accessed by the user to reset the connection. For this reason, ClientModule is a class whose main functionality is to start a threaded instance of the SubreflectorClient class in subreflector\_client.py, but also has extra methods to initiate a shutdown and connection reset of SubreflectorClient if necessary.
+
+\subsubsection{MyUDPHandler}
+
+MyUDPHandler uses the socketservers' BaseRequestHandler to detect incoming messages on the given address. The handle method is ran every time a message is received through the user\_client.py socket. All this handle method does is decode the message and pass it through to the CommandParser class. It then receives all the messages collected by the CommandParser class and relays them back sequentially to the user in a for loop.
+
+\subsubsection{CommandParser}
+
+TODO
+
+
+\subsubsection{MulticastReceiver}
+
+TODO
+
+%\subsubsection*{check\_if\_command\_sent\_successfully() }
+
 
 
 % % % % % MTCOMMAND MODULE % % % % %
+\newpage
 \subsection{mtcommand.py}
 
 This is the only module that maintains a direct link with the write port of the subreflector. Because of this, mtcommand.py has the core functionality required for communicating with the subreflector. Excluding  the overhead structure classes, the encapsulate command, and other minor methods, most of the MTCommand class (the sole class in the whole module) is populated with methods that directly follow the remote control interface (EFB-SPE-4710-03)  documentation of how to structure a command.
@@ -147,7 +181,7 @@ The self.msg instance variable is used to pass messages onto the user through th
 
 
 
-\subsubsection{start\_mtcommand()}
+\subsubsection*{start\_mtcommand()}
 If one chooses to import this module and directly use the methods, the following two lines must be given
     \begin{lstlisting}
     		    import mtcommand
@@ -157,34 +191,34 @@ If one chooses to import this module and directly use the methods, the following
 
 start\_mtcommand() creates the socket to the address and ***REMOVED*** write port, and sets the socket option to reuse the address. This method is intentionally separated from the \_\_init\_\_() method as  start\_mtcommand() would need to be called if the user chooses to reset the connection on the write port. Usage to reset the connection is described in the users manual under ``Other options -> Reset Connection''
 
-\subsubsection{get\_server\_address(test\_server)}
+\subsubsection*{get\_server\_address(test\_server)}
 \emph{test\_server:  Boolean. Decides if to use test server address or real server address}
 \vspace{10pt}
 
 MTCommand is initialized when an instance variable for the class is created in the CommandParser \_\_init\_\_() in subreflector\-program.py. During this initialization, MTCommand calls the self.get\_server\_address() method, which is a simple method that takes an input boolean parameter (test\_server) and returns the test  server address if True, or the real server address otherwise. The write port is always ***REMOVED***.
 
-\subsubsection{send\_command(packaged\_msg)}
+\subsubsection*{send\_command(packaged\_msg)}
 \emph{packaged\_msg: bytes string. The packaged and encoded message that can be sent through the socket.} 
 \vspace{10pt}
 
 This method receives a packaged and encoded ctype structure containing the command to be sent to the subreflector. This method also sets the self.msg instance variable to either ``send successfully'' or an error message. An error message could occur here if the subreflector write port is not active, or any other of the various networking exceptions that can arise. 
 
 
-\subsubsection{pack(ctype\_instance)}
+\subsubsection*{pack(ctype\_instance)}
 \emph{ctype\_instance: an instance of the respective class structure you want to pack}
 \vspace{10pt}
 
 These method is used to pack the ctype structure to a bytes string. pack() takes a ctypes structure instance and  returns a bytes string that can be passed through the socket. 
 
 
-\subsubsection{unpack(ctype, buf)}
+\subsubsection*{unpack(ctype, buf)}
 \emph{ctype: type structure class for reference}\\
 \emph{buf: bytes string to unpack to class instance}
 \vspace{10pt}
 
 unpack() takes a bytes string, as well as a ctype structure class as reference, and unpacks the bytes back into the structured instance.
 
-\subsubsection{...\_command\_to\_struct(command)}
+\subsubsection*{...\_command\_to\_struct(command)}
 \emph{command: Tuple. The command data that is needed in the ctype struct that is independent of every command}
 \vspace{10pt}
 
@@ -194,7 +228,7 @@ unpack() takes a bytes string, as well as a ctype structure class as reference, 
 Each of these four methods references a class located in process\_message.py which is a template for the required structure of the command. The name of this class is often the name of the command plus Structure, i.e. InterlockStructure. An instance of the class is then created, passing all the related information from both instance variables and the command parameter given. This instance of the ctypes struct (self.structure) is then packaged and sent by the encapsulate\_command() method.
 
 
-\subsubsection{encapsulate\_command(type\_of\_command, command\_msg)}
+\subsubsection*{encapsulate\_command(type\_of\_command, command\_msg)}
 \emph{type\_of\_command: string. Used as a marker to indicate which ctype struct to use}\\
 \emph{command\_msg: tuple. The command data needed in the ctype struct ( independent for every command)}
 \vspace{10pt}
@@ -202,32 +236,33 @@ Each of these four methods references a class located in process\_message.py whi
 Encapsulate\_command takes in the parameter type\_of\_command, and finds the ...\_command\_to\_struct() method that has the correct ctypes structure to deal with a command of that length/type. It passes command\_msg to that method. The self.structure instance variable is then newly populated with the new structured ctypes command, which encapsulate\_command() then passes to self.pack() to package into a bytes string. This bytes string, called bytes\_ctype, is then sent to self.send\_command(). 
 
 
-\subsubsection{various command creation methods}
+\subsubsection*{various command creation methods}
 
 The rest of the MTCommand class is composed of various methods that all return a tuple of data, which is passed onto the encapsulate\_command method. These helper methods may take in values (usually when the command involves moving or setting something), and add that to the tuple to send through. For a detailed explanation of the commands, and other commands currently not implemented in the module, please reference remote control interface (EFB-SPE-4710-03)  documentation, the documentation that was used directly and kept closely when creating this module. 
  
 
 
 % % % % % PROCESS MESSAGE MODULE % % % % %
+\newpage
 \subsection{process\_message.py}
 \emph{Name still pending}
 \vspace{10pt}
 
 This module contained functions and classes that are crucial for processing messages to and from the subreflector (including the mock subreflector).
  
-\subsubsection{package\_msg(bytes\_string)}
+\subsubsection*{package\_msg(bytes\_string)}
 \emph{bytes\_string: bytes string}
 \vspace{10pt}
 
 This function takes a bytes string and passes it onto the decode\_struct() function. It then returns 12 different variables that are then used to create the status\_message dictionary. This 1200 line dictionary decodes all 1760  values of the subreflector message received on the ***REMOVED*** port into a readable JSON format. status\_message is then dumped into a JSON string and encoded before it is returned.
 
-\subsubsection{decode\_struct(data)}
+\subsubsection*{decode\_struct(data)}
 \emph{data: bytes string}
 \vspace{10pt}
 
 decode\_struct takes in the same bytes\_string as its parent function, and uses the python struct library to unpack each section of the subreflector message. All twelve variables are then returned so package\_msg can continue to process it.
 
-\subsubsection{endecode\_struct(header, il, power, polar, hxpd, focus, asf, bdkl, spkl, temp, foctime, last)}
+\subsubsection*{endecode\_struct(header, il, power, polar, hxpd, focus, asf, bdkl, spkl, temp, foctime, last)}
 \emph{all parameters are tuples}
 \vspace{10pt}
 
@@ -236,14 +271,14 @@ The reverse of decode\_struct, takes in 12 tuples exact length required) and ret
 
 Note: Due to the nature of struct.pack(), this function will still package the message even if one of the tuples in of invalid length. No testing has yet been included to fix this possible bug. 
 
-\subsubsection{recv\_msg(sock)}
+\subsubsection*{recv\_msg(sock)}
 \emph{sock: socket instance}
 \vspace{10pt}
 
 This function listens to the given (TCP) socket instance given and upon receiving a message, and appends each message to the list called ``messages''. This continues to receive messages until a message is received through the socket that is b''\textbackslash nend'', upon which the while loop is broken and the list-of-strings is returned. This is structured this way as when a user gives an input command, multiple different messages may be triggered that are useful to the user. Due to the nature of the socketserver implementation of MyUDPHandler, the handle() method can only be called once per every user message given (without significant overhead). Thus a list of messages is passed though the return socket one at a time, described in MyUDPHandler.handle() method in the subreflector\_process.py section
 
 
-\subsubsection{various structure classes}
+\subsubsection*{various structure classes}
 The end of this file contains several ctypes structure classes that take ctypes.Structure as a parameter. These are used in mtcommand.py as well as mock\_subreflector.py (to deconstruct the ctypes, exactly the opposite usage as mtcommand.py). 
 
 \vspace{10pt}
@@ -253,6 +288,7 @@ The last of these structures is called BasicStrucutre. This is solely used in th
 
 
 % % % % % CON-FIG MODULE % % % % %
+\newpage
 \subsection{config.py}
 
 This module just contains static information that is relevant as global variables throughout the program. Some notes to mention are:
@@ -281,11 +317,13 @@ Due to the short time frame of the project, and since some of the concepts I use
 \subsection{socket timeout on first instance of resetting the connection to the subreflector }
 
 This is a known bug, though to my knowledge, it does not impede or affect any of the code other than a socket time out. This only happens once, which is during the very first call to reset the connection with the subreflector. At time of writing, that is with the command EFFELSBERG:MTSUBREFLECTOR:OTHER:RESETCONNECTION. Once called, a method in the main program (subreflector\_program.py) that 
-calls a method in subreflector\_client.py, which triggers a flag that starts the cleanup process of closing the socket. Once this is complete, the initial method from the main program then calls make\_connection, which reconnects to the subreflector. The issue is that the first time this happens, the handler thread that returns messages to the user is blocked, and a socket timeout is reached. The connection is still reset, but due to the timeout exception, it seems like it is not. This only occurs on the first instance of RESETCONNECTION, and not subsequent ones. After some debugging, I discovered this is because two threads alternate control of the handler, this can be seen by the debug log, and taking not of the thread ID and how they swap. To my understanding this is an issue with an improper implementation of the threading, which proved to be a difficult module to implement correctly, including proper mutex and thread safe code; as it is very easy to implement threading incorrectly.
+calls a method in subreflector\_client.py, which triggers a flag that starts the cleanup process of closing the socket. Once this is complete, the initial method from the main program then calls make\_connection, which reconnects to the subreflector. The issue is that the first time this happens, the handler thread that returns messages to the user is blocked, and a socket timeout is reached. The connection is still reset, but due to the timeout exception, it seems like it is not. This only occurs on the first instance of RESETCONNECTION, and not subsequent ones. After some debugging, I discovered this is because two threads alternate control of the handler, this can be seen by the debug log, and taking not of the thread ID and how they swap. To my understanding this is an issue with an the current implementation of the threading, which proved to be a difficult module to implement correctly,
 
+\iffalse
 \subsection{Pytest Testing Issues}
 
 Some of these fixes are ongoing and may be changed in the coming weeks as I wrap up the project. Currently, there are issues with using Pytest to run tests on the program. After some fixes to structuring, I've discovered that the tests are not consistent, (i.e. sometimes they run and pass, and then right after will fail if re-ran). This is in part due to the usage of threaded sockets and servers. For example, a test was made that would send a command like ``EFFELSBERG:MTSUBREFLECTOR:INTERLOCK:SET 10''  through a socket as if given by a user in a command terminal. It would be picked up by the subreflector program in the subreflector\_program.py module. This string would be parsed, and the corresponding method (set\_mt\_elevation(elevation)) would be called. This method, located in the MTCommand class in the mtcommand.py module, would structure, wrap, and package the structured command and send it through a socket to the MT subreflector. This command could be intercepted and deconstructed by mock\_subreflector.py, a fake instance of the subreflector with the same port addresses. Once intercepted, the structured command can be deconstructed and it's values saved. The test can then check to see if these instance variables are properly changed. The issue with this process comes partly due to the fact that sending any message through a socket is very slow (at least comparatively to `normal' non network code. 
+\fi
 
 
 
