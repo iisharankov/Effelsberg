@@ -79,7 +79,7 @@ class Receiver:
             # SO_REUSEADDR tells kernel to use socket even if in TIME_WAIT state
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind(server_address)
-            print('starting up on %s port %s' % server_address)
+
             sock.listen(2)
 
 
@@ -207,23 +207,23 @@ def sender():
         # SO_REUSEADDR tells kernel to use socket even if in TIME_WAIT state
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(server_address)
-        print('starting up on %s port %s' % server_address)
+
+        print('Mock subreflector started on %s' % server_address[0])
         sock.listen(2)
 
 
         while True:
             # listen for incoming connections (server mode)
             # with one connection a time
-            print('waiting for a connection')
+
             connection, client_address = sock.accept()
-            print("connection from", client_address)
+            print("Connection from", client_address)
 
             # receive the data in small chunks and print it
             while True:
 
                 data = connection.recv(config.BUFFER_SIZE)
                 if data == b"\n":
-                    print("Initialization request received")
 
                     while True:
                         time.sleep(0.05)

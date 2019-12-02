@@ -109,18 +109,5 @@ while True:
                 just_name = nesteddict.split('-')[2].ljust(15)
                 file.write(just_name + str(master) + "\n")
 
-    # print(t['status-data-irig-b-system']['current-time-as-modified-julian-day(mjd)'])
-    #
-    # print(t["status-data-active-surface"]\
-    #                             ["Elevation-angle[deg]"])
-    # tt = t.decode('utf-8')
-    # encoded_t = json.loads(tt)
-    # # t = sdh_multicast()
-    # print(encoded_t["status-data-active-surface"]\
-    #                             ["Elevation-angle[deg]"])
-    # loaded = json.loads(t)
-    # print(type(loaded))
-    # print(t)
-    # print(loaded["status-data-irig-b-system"])
 
 

@@ -1,4 +1,4 @@
-from subtools.mock_subreflector import main as mock_main
+from .mock_subreflector import main as mock_main
 
 
 def main(*args, **kwargs):
