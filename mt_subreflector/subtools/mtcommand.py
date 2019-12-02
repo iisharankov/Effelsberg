@@ -4,7 +4,7 @@ import ctypes
 import logging
 import datetime
 
-from . import config
+from . import config, process_message
 
 
 class MTCommand:
@@ -24,8 +24,8 @@ class MTCommand:
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.sock.connect(self.servertype)
 
-        except ConnectionError as E:
-            logging.exception("Error connecting to command port on SR", E)
+        except ConnectionError:
+            logging.exception("Error connecting to command port on SR")
 
     def get_server_address(self, test_server):
         """
@@ -34,7 +34,7 @@ class MTCommand:
             if flag set to true, the address for the test server is used instead
         :return: IP address and port for the respective subreflector
         """
-        # TODO Fails to connect as port ***REMOVED*** not active on mock_subreflector.py
+
         if test_server:
             msg = "Connected to local subreflector in MockSubreflector.py"
             logging.debug(msg)
@@ -46,15 +46,21 @@ class MTCommand:
             logging.debug(msg)
             return config.SR_IP, config.SR_WRITE_PORT
 
-    def send_command(self, command):
+    def send_command(self, packaged_msg):
+        """
+        receives a bytes string that is a *structured, packed, and encoded* msg
+        self.msg is set so it can be parsed in the UDPCommandParser class
+        :param command: bytes string
+        :return: N/A
+        """
         # Sends the given command though the socket to the Subreflector
         try:
             logging.debug(f"Sending packaged_ctype to Subreflector at "
                           f"address: {self.sock.getsockname()[0]}, "
                           f"port: {self.sock.getsockname()[1]}.")
 
-            # print('\n', command)
-            self.sock.send(command)
+            self.sock.send(packaged_msg)
+            self.msg = "sent successfully"
         except ConnectionError or BrokenPipeError as E:
             self.msg = f"There was a socket error: {E}"
 
@@ -86,52 +92,17 @@ class MTCommand:
 
     def interlock_command_to_struct(self, command):
 
-        # Correct class structure for given command
-        class InterlockStructure(ctypes.Structure):
-            _pack_ = 1
-            _fields_ = [("start_flag", ctypes.c_uint32),
-                        ("message_length", ctypes.c_int32),
-                        ("command_serial_number", ctypes.c_int32),
-                        ("command", ctypes.c_int16),
-                        ("mode", ctypes.c_int16),
-                        ("elevation", ctypes.c_double),
-                        ("reserved", ctypes.c_double),
-                        ("end_flag", ctypes.c_uint32)]
-
-        size_of_struct = ctypes.sizeof(InterlockStructure())
+        size_of_struct = ctypes.sizeof(process_message.InterlockStructure())
 
         cmd_il, mode, elevation, reserve = command
         # self.seconds = 12345  # Temporary to have identical stamps to compare
-        self.structure = InterlockStructure(
+        self.structure = process_message.InterlockStructure(
             self.startflag, size_of_struct, self.seconds, 
             cmd_il, mode, elevation, reserve, self.endflag)
 
     def asf_command_to_struct(self, command):
-       
-        # Correct class structure for given command
-        class AsfStructure(ctypes.Structure):
-            _pack_ = 1
-            _fields_ = [("start_flag", ctypes.c_uint32),
-                        ("message_length", ctypes.c_int32),
-                        ("command_serial_number", ctypes.c_int32),
-                        ("command", ctypes.c_int16),
-                        ("mode", ctypes.c_int16),
-                        ("offset_dr_nr", ctypes.c_int16),
-                        ("offset_active", ctypes.c_uint16),
-                        ("offset_value1", ctypes.c_int16),
-                        ("offset_value2", ctypes.c_int16),
-                        ("offset_value3", ctypes.c_int16),
-                        ("offset_value4", ctypes.c_int16),
-                        ("offset_value5", ctypes.c_int16),
-                        ("offset_value6", ctypes.c_int16),
-                        ("offset_value7", ctypes.c_int16),
-                        ("offset_value8", ctypes.c_int16),
-                        ("offset_value9", ctypes.c_int16),
-                        ("offset_value10", ctypes.c_int16),
-                        ("offset_value11", ctypes.c_int16),
-                        ("end_flag", ctypes.c_uint32)]
 
-        size_of_struct = ctypes.sizeof(AsfStructure())
+        size_of_struct = ctypes.sizeof(process_message.AsfStructure())
 
         cmd_as, mode, offset_dr_nr, offset_active, offset_value1, \
             offset_value2, offset_value3, offset_value4, offset_value5, \
@@ -139,7 +110,7 @@ class MTCommand:
             offset_value10, offset_value11 = command
 
         # self.seconds = 12345  # Temporary to have identical stamps to compare
-        self.structure = AsfStructure(
+        self.structure = process_message.AsfStructure(
             self.startflag,
             size_of_struct, self.seconds, cmd_as, mode, offset_dr_nr,
             offset_active, offset_value1, offset_value2, offset_value3,
@@ -149,37 +120,13 @@ class MTCommand:
 
     def hxpd_command_to_struct(self, command):
 
-        # Correct class structure for given command
-        class HexapodStructure(ctypes.Structure):
-            _pack_ = 1
-            _fields_ = [("start_flag", ctypes.c_uint32),
-                        ("message_length", ctypes.c_int32),
-                        ("command_serial_number", ctypes.c_int32),
-                        ("command", ctypes.c_int16),
-                        ("fashion", ctypes.c_int16),
-                        ("mode_lin", ctypes.c_int16),
-                        ("anzahl_lin", ctypes.c_uint16),
-                        ("phase_lin", ctypes.c_double),
-                        ("p_xlin", ctypes.c_double),
-                        ("p_ylin", ctypes.c_double),
-                        ("p_zlin", ctypes.c_double),
-                        ("v_lin", ctypes.c_double),
-                        ("mode_rot", ctypes.c_int16),
-                        ("anzahl_rot", ctypes.c_uint16),
-                        ("phase_rot", ctypes.c_double),
-                        ("p_xrot", ctypes.c_double),
-                        ("p_yrot", ctypes.c_double),
-                        ("p_zrot", ctypes.c_double),
-                        ("v_rot", ctypes.c_double),
-                        ("end_flag", ctypes.c_uint32)]  # DWORD
-
-        size_of_struct = ctypes.sizeof(HexapodStructure())
+        size_of_struct = ctypes.sizeof(process_message.HexapodStructure())
 
         cmd_hxpd, fashion, mode_lin, anzahl_lin, phase_lin, \
             p_xlin, p_ylin, p_zlin, v_lin, mode_rot, anzahl_rot, phase_rot, \
             p_xrot, p_yrot, p_zrot, v_rot, = command
 
-        self.structure = HexapodStructure(
+        self.structure = process_message.HexapodStructure(
             self.startflag, size_of_struct, self.seconds, cmd_hxpd, fashion,
             mode_lin, anzahl_lin, phase_lin, p_xlin, p_ylin, p_zlin, v_lin,
             mode_rot, anzahl_rot, phase_rot, p_xrot, p_yrot, p_zrot, v_rot,
@@ -187,23 +134,11 @@ class MTCommand:
 
     def polar_command_to_struct(self, command):
 
-        # Correct class structure for given command
-        class PolarStructure(ctypes.Structure):
-            _pack_ = 1
-            _fields_ = [("start_flag", ctypes.c_uint32),
-                        ("message_length", ctypes.c_int32),
-                        ("command_serial_number", ctypes.c_int32),
-                        ("command", ctypes.c_int16),
-                        ("mode", ctypes.c_int16),
-                        ("p_soll", ctypes.c_double),
-                        ("v_cmd", ctypes.c_double),
-                        ("end_flag", ctypes.c_uint32)]
-
-        size_of_struct = ctypes.sizeof(PolarStructure())
+        size_of_struct = ctypes.sizeof(process_message.PolarStructure())
 
         cmd_polar, fashion, p_soll, v_cmd = command
         # self.seconds = 12345  # Temporary to have identical stamps to compare
-        self.structure = PolarStructure(
+        self.structure = process_message.PolarStructure(
             self.startflag, size_of_struct, self.seconds,
             cmd_polar, fashion, p_soll, v_cmd, self.endflag)
 
@@ -243,7 +178,7 @@ class MTCommand:
         try:
             assert self.structure is not None # Should be changed from above code
             logging.debug("Packing structure to bytes")
-            packaged_ctype = self.pack(self.structure)
+            bytes_ctype = self.pack(self.structure)
 
         except AssertionError as E:
             logging.exception("Structure was not set by relevant"
@@ -251,7 +186,7 @@ class MTCommand:
             print(E)
 
         else:
-            self.send_command(packaged_ctype)
+            self.send_command(bytes_ctype)
 
     # # # # # 4.2 Interlock command # # # # #
     def set_mt_elevation(self, elevation):
