@@ -1,0 +1,27 @@
+\contentsline {section}{\numberline {1}Introduction}{3}
+\contentsline {section}{\numberline {2}Structure Overview}{3}
+\contentsline {section}{\numberline {3}In-depth module explanations}{5}
+\contentsline {subsection}{\numberline {3.1}user\_client.py}{5}
+\contentsline {subsubsection}{\numberline {3.1.1}main()}{5}
+\contentsline {subsubsection}{\numberline {3.1.2}ask\_user\_between\_test\_and\_real\_server()}{5}
+\contentsline {subsection}{\numberline {3.2}subreflector\_program.py}{5}
+\contentsline {subsubsection}{\numberline {3.2.1}check\_if\_command\_sent\_successfully() }{5}
+\contentsline {subsection}{\numberline {3.3}mtcommand.py}{5}
+\contentsline {subsubsection}{\numberline {3.3.1}start\_mtcommand()}{6}
+\contentsline {subsubsection}{\numberline {3.3.2}get\_server\_address(test\_server)}{6}
+\contentsline {subsubsection}{\numberline {3.3.3}send\_command(packaged\_msg)}{6}
+\contentsline {subsubsection}{\numberline {3.3.4}pack(ctype\_instance)}{6}
+\contentsline {subsubsection}{\numberline {3.3.5}unpack(ctype, buf)}{6}
+\contentsline {subsubsection}{\numberline {3.3.6}...\_command\_to\_struct(command)}{7}
+\contentsline {subsubsection}{\numberline {3.3.7}encapsulate\_command(type\_of\_command, command\_msg)}{7}
+\contentsline {subsubsection}{\numberline {3.3.8}various command creation methods}{7}
+\contentsline {subsection}{\numberline {3.4}process\_message.py}{7}
+\contentsline {subsubsection}{\numberline {3.4.1}package\_msg(bytes\_string)}{7}
+\contentsline {subsubsection}{\numberline {3.4.2}decode\_struct(data)}{7}
+\contentsline {subsubsection}{\numberline {3.4.3}endecode\_struct(header, il, power, polar, hxpd, focus, asf, bdkl, spkl, temp, foctime, last)}{8}
+\contentsline {subsubsection}{\numberline {3.4.4}recv\_msg(sock)}{8}
+\contentsline {subsubsection}{\numberline {3.4.5}various structure classes}{8}
+\contentsline {subsection}{\numberline {3.5}config.py}{8}
+\contentsline {section}{\numberline {4}Bugs}{9}
+\contentsline {subsection}{\numberline {4.1}socket timeout on first instance of resetting the connection to the subreflector }{9}
+\contentsline {subsection}{\numberline {4.2}Pytest Testing Issues}{9}
