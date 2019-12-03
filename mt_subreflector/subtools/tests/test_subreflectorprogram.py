@@ -5,8 +5,8 @@ import socket
 import ctypes
 import time
 
-from . import mock_subreflector, process_message, config
-from . import initialize_threaded_udp_server
+from subtools import mock_subreflector, process_message, config
+from subtools import initialize_threaded_udp_server
 
 
 @pytest.fixture(scope="module")
