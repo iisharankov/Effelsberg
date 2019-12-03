@@ -1375,7 +1375,7 @@ def encode_struct(header, il, power, polar, hxpd, focus,
     return data
 
 
-def recv_msg(sock):
+def recv_msg(sock, print_msg=True):
     """
     Helper function that listens for messages through a socket until a b'\nend'
     is received, then stops and returns the list of messages to the user.
@@ -1392,13 +1392,15 @@ def recv_msg(sock):
 
             if received != b'\nend':
                 messages.append(received.decode('utf-8'))
-                print(f"Received: {received.decode('utf-8')}")
+                if print_msg:
+                    print(f"Received: {received.decode('utf-8')}")
 
             else:
                 break
 
     except socket.timeout:
-        print("Socket timed out, Try again")
+        if print_msg:
+            print("Socket timed out, Try again")
 
     else:
         return messages

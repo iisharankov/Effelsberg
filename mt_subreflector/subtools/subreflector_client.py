@@ -11,9 +11,6 @@ import threading
 from . import process_message, config
 from .config import SR_IP, SR_READ_PORT, LOCAL_IP
 
-
-MULTICAST = (***REMOVED***, ***REMOVED***)
-
 class SubreflectorClient:
 
     def __init__(self):
@@ -104,7 +101,8 @@ class SubreflectorClient:
         while True:
             with templock:
                 status_message = self.mcast_queue.get()
-                self.multicast_sock.sendto(status_message, MULTICAST)
+                multicast_address = (config.MULTICAST_IP, config.MULTICAST_PORT)
+                self.multicast_sock.sendto(status_message, multicast_address)
 
     def receive_data(self, sock):
         """

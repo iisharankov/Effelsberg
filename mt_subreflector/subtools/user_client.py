@@ -32,9 +32,9 @@ def main():
                       "lower values reserved (except 0)")
                 print(E)
 
-            except OSError as e:
+            except OSError as E:
                 port = None
-                print(f"OSError occured: {e}")
+                print(f"OSError occured: {E}")
 
         while True:
             time.sleep(0.1)

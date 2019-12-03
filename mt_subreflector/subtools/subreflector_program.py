@@ -12,7 +12,7 @@ from . import mtcommand, subreflector_client, config
 
 def main():
     """
-    Start connections does just that, it connects to two servers. One is in
+    Connects to two servers. One is in
     subreflector_client.py which directly connects to the output of the
     subreflector, which listens for the status message which gets multicast by
     that module. The second is start_udp_server, which starts a server listening
@@ -23,11 +23,12 @@ def main():
     :return: N/a
     """
 
-    logging.basicConfig(filename='subreflector_program_debug.log',
-                        filemode='w', level=logging.DEBUG,
-                        format='%(asctime)s - %(levelname)s - %(thread)d - '
-                               '%(module)s - %(funcName)s- %(message)s',
-                        datefmt='%d-%b-%y %H:%M:%S')
+    logging.basicConfig(
+        filename='subreflector_program_debug.log',
+        filemode='w', level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(thread)d - '
+               '%(module)s - %(funcName)s- %(message)s',
+        datefmt='%d-%b-%y %H:%M:%S')
 
     try:
 
@@ -35,15 +36,11 @@ def main():
         assert isinstance(config.USE_TEST_SERVER, int)
 
         logging.debug("Start Startup_Subreflector_Client instance")
-        sr_client = SRClientModule()
+        sr_client = ClientModule()
         sr_client.start_sr_client()
 
-        logging.debug("Start UDP server instance")
+        # Start the udp_client
         udp_client = initialize_threaded_udp_server(sr_client)
-
-    except AssertionError as E:
-        logging.debug("Start connections parameter must be bool, was other")
-        raise E
 
     except Exception as E:
         logging.exception("An exception occurred starting the threaded classes")
@@ -54,9 +51,9 @@ def main():
 
 # # # # # # # # Necessary class to initalize SR receiver module # # # # # # # #
 
-class SRClientModule:
+class ClientModule:
     """
-    Simple class that correctly starts up the subreflectorclient.py script
+    Simple class that starts up the subreflectorclient.py script
     in a thread so it can process data from the MT Subreflector in real time.
     This is set up as a non-daemon thread to work in the background, and to hang
     until closed manually.
@@ -106,6 +103,7 @@ class SRClientModule:
     def close_sr_client(self):
         logging.debug("User initiated Subreflector connection reset")
         logging.debug(f"{threading.enumerate()}")
+        self.shutdown()
         self.thread.join()
         self.srclient.end_connection()
         logging.debug(f"{threading.enumerate()}")
@@ -128,7 +126,7 @@ class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
 
     def __init__(self, sr_client, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.udp_parser_client = UDPCommandParser(sr_client)
+        self.command_parser = CommandParser(sr_client)
         logging.debug("Initialized ThreadingUDPServer")
 
 
@@ -170,25 +168,25 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
 
     def setup(self):
         self.msg = []
+        logging.debug("#" * 50 + "Message received from user")
 
     def handle(self):
-        logging.debug("#" * 50, "Telnet: Message received from udp-telnet")
-        # takes message, decodes to string and - all whitespace (by rejoining)
-        telnet_msg = self.request[0].decode('utf-8')
 
-        self.server.udp_parser_client.probe_command(telnet_msg)
-        self.msg = self.server.udp_parser_client.return_message()
+        # takes message, decodes to string
+        user_command = self.request[0].decode('utf-8')
+        self.server.command_parser.probe_command(user_command)
+
+        self.msg = self.server.command_parser.return_message()
         self.msg.append('\nend')
         logging.debug(f"All messages are: {self.msg}")
 
-        logging.debug("Telnet: Setting up returnsocket")
+        logging.debug("Setting up returnsocket")
         returnsocket = self.request[1]
         for each_msg in self.msg:
             returnsocket.sendto(each_msg.encode(), self.client_address)
-        logging.debug("#" * 50)
 
 
-class UDPCommandParser:
+class CommandParser:
     """
     Instantiating this class takes a string and parses it to return the correct
     response to the user
@@ -208,6 +206,18 @@ class UDPCommandParser:
         self.mtcommand_client = mtcommand.MTCommand()
         self.mtcommand_client.start_mtcommand()
         self.sr_client = sr_client
+
+
+    def check_command_sent_successfully(self, msg):
+        if self.mtcommand_client.msg == "sent successfully":
+            self.msg.append(msg)
+        else:
+            self.msg.append(
+                f"There was an issue with mtcommand and the "
+                f"command was not sent to the subreflector. "
+                f"mtcommand error message is: \n "
+                f"{self.mtcommand_client.msg}")
+
 
     # # # # # General parsing section # # # # #
     def probe_command(self, usr_input):
@@ -255,6 +265,10 @@ class UDPCommandParser:
                          f'"OTHER".'
                 self.msg.append(string)
 
+            elif command == "?":
+                self.msg.append('Usable inputs are: "ACTIVATE", '
+                                '"DEACTIVATE", "SET", "GET".')
+
             elif not subcommand:
                 msg = "No colon given after command entry. Add colon and " \
                       "leave subcommand empty for possible options"
@@ -272,9 +286,7 @@ class UDPCommandParser:
                 self.polar_control(subcommand[0])
             elif command == "OTHER":
                 self.other_controls(subcommand[0])
-            elif command == "?":
-                self.msg.append('Usable types for interlock are: "ACTIVATE", '
-                                '"DEACTIVATE", "SET", "GET".')
+
             else:
                 logging.debug("User gave unrecognized command input")
                 string = f'{command} is not a valid input. The valid inputs' \
@@ -288,12 +300,12 @@ class UDPCommandParser:
         if "DEACTIVATE" in subcommand:
             logging.debug("interlock deactivate command given")
             self.mtcommand_client.deactivate_mt()
-            self.msg.append("Interlock deactivated")
+            self.check_command_sent_successfully("Interlock deactivated")
 
         elif "ACTIVATE" in subcommand:
             logging.debug("interlock activate command given")
             self.mtcommand_client.activate_mt()
-            self.msg.append("Interlock activated")
+            self.check_command_sent_successfully("Interlock activated")
 
         elif "SET" in subcommand:
 
@@ -318,14 +330,17 @@ class UDPCommandParser:
             else:
                 logging.debug("interlock set elevation command given")
                 self.mtcommand_client.set_mt_elevation(float(value))
-                self.msg.append(f"Interlock elevation set to {value} degrees")
+
+                msg = f"Interlock elevation set to {value} deg"
+                self.check_command_sent_successfully(msg)
+
+
 
         elif "GET" in subcommand:
             logging.debug("Interlock get elevation command given")
             elevation = self.mcast_receiver.get_elevation()
 
-            msg = f"\n Interlock elevation: {elevation}"
-            self.msg.append(msg)
+            self.msg.append(f"\n Interlock elevation: {elevation}")
 
         elif "?" in subcommand:
             self.msg.append('Usable types for interlock are: "ACTIVATE", '
@@ -333,7 +348,7 @@ class UDPCommandParser:
 
         else:
             logging.debug("User command fit no interlock option")
-            self.msg.append('message type not recognized. Correct types for '
+            self.msg.append('Message type not recognized. Correct types for '
                             'interlock are: "ACTIVATE", "DEACTIVATE", '
                             '"SET", "GET".')
 
@@ -359,6 +374,7 @@ class UDPCommandParser:
                 " z_lin: between -195 and 45 \n" \
                 " x_rot, y_rot, z_r: between -0.95 and 0.95"
 
+
         if "GETABS" in subcommand:
             logging.debug("Hexapod get absolute position command given")
             positions = self.mcast_receiver.get_hexapod_positions()
@@ -369,9 +385,10 @@ class UDPCommandParser:
                   f"\n hxpd_yrot: {positions[4]}," \
                   f"\n hxpd_zrot: {positions[5]}"
             self.msg.append(msg)
-
-        elif subcommand[:9] in ["SETABSLIN", "SETRELLIN",
-                                "SETABSROT", "SETRELROT"]:
+        
+        
+        elif subcommand[:9] in ["SETABSLIN", "SETRELLIN", "SETABSROT", "SETRELROT"]:
+            
             try:
                 if ',' in subcommand:
                     self.msg.append("Do not put commas between numbers")
@@ -412,11 +429,15 @@ class UDPCommandParser:
                     else:
                         self.mtcommand_client.preset_abs_lin_hxpd(
                             new_val[0], new_val[1], new_val[2], new_val[3])
+
+
                         msg = f"Set absolute values for linear drives on " \
                               f"hexapod to \n" \
                               f" xlin: {new_val[0]}, ylin: {new_val[1]}," \
                               f" zlin: {new_val[2]}, v_lin: {new_val[3]}"
-                        self.msg.append(msg)
+
+                        self.check_command_sent_successfully(msg)
+
 
                 elif "SETABSROT" in subcommand:
                     logging.debug("Hexapod set absolute rotational"
@@ -436,12 +457,13 @@ class UDPCommandParser:
                     else:
                         self.mtcommand_client.preset_abs_rot_hxpd(
                             new_val[0], new_val[1], new_val[2], new_val[3])
+
                         msg = f"Set absolute values for rotational drives on " \
                               f"hexapod to \n" \
                               f" xrot: {new_val[0]}, yrot: {new_val[1]}," \
                               f" zrot: {new_val[2]}, v_rot: {new_val[3]}"
-                        self.msg.append(msg)
-                        logging.debug("Msg appended")
+
+                        self.check_command_sent_successfully(msg)
 
                 elif "SETRELLIN" in subcommand:
                     logging.debug("Hexapod set relative linear command given")
@@ -465,11 +487,12 @@ class UDPCommandParser:
                         self.mtcommand_client.preset_abs_lin_hxpd(
                             new_xlin, new_ylin, new_zlin, velocity)
 
-                        self.msg.append(
-                            "added relative values for linear drives on "
-                            "hexapod. Moving to values: \n"
-                            f" xlin: {new_xlin}, ylin: {new_ylin},"
-                            f" zlin: {new_zlin}, v_lin: {velocity}")
+                        msg = "added relative values for linear drives on " \
+                              "hexapod. Moving to values: \n" \
+                             f" xlin: {new_xlin}, ylin: {new_ylin}," \
+                             f" zlin: {new_zlin}, v_lin: {velocity}"
+
+                        self.check_command_sent_successfully(msg)
 
                 elif "SETRELROT" in subcommand:
                     logging.debug("Hexapod set relative rotational "
@@ -490,15 +513,17 @@ class UDPCommandParser:
                         self.msg.append(helper_msg('relative'))
                         logging.exception("Relative inputs given go over saftey"
                                           " limits set on Hexapod. Aborted")
+
                     else:
                         self.mtcommand_client.preset_abs_rot_hxpd(
                             new_xrot, new_yrot, new_zrot, velocity)
 
-                        self.msg.append(
-                            "added relative values for rotational drive on "
-                            "hexapod. Moving to values: \n"
-                            f" xrot: {new_xrot}, yrot: {new_yrot},"
-                            f" zrot: {new_zrot}, v_rot: {velocity}")
+                        msg = "added relative values for rotational drive on " \
+                              "hexapod. Moving to values: \n" \
+                             f" xrot: {new_xrot}, yrot: {new_yrot}," \
+                             f" zrot: {new_zrot}, v_rot: {velocity}"
+
+                        self.check_command_sent_successfully(msg)
                 else:
                     # Safety, but should be unreachable
                     self.msg.append(
@@ -508,59 +533,93 @@ class UDPCommandParser:
         elif "DEACTIVATE" in subcommand:
             logging.debug("Hexapod deactivation command given")
             self.mtcommand_client.deactivate_hxpd()
+            self.check_command_sent_successfully("Hexapod deactivated")
+
         elif "ACTIVATE" in subcommand:
             logging.debug("Hexapod activation command given")
             self.mtcommand_client.activate_hxpd()
+            self.check_command_sent_successfully("Hexapod activated")
+
         elif "STOP" in subcommand:
             logging.debug("Hexapod stop command given")
             self.mtcommand_client.stop_hxpd()
+            self.check_command_sent_successfully("Hexapod stopped")
+
         elif "INTERLOCK" in subcommand:
             logging.debug("Hexapod interlock command given")
             self.mtcommand_client.interlock_hxpd()
+            self.check_command_sent_successfully("Hexapod interlock")
+            
         elif "ERROR" in subcommand:
             logging.debug("Hexapod acknowledge error command given")
             self.mtcommand_client.acknowledge_error_on_hxpd()
+            self.check_command_sent_successfully("Hexapod error acknowledged")
+
+
         elif "?" in subcommand:
             self.msg.append(
                 'Usable types for hexapod are: '
-                '"GETABS", "SETABSLIN", "SETABSREL", "SETRELLIN", "SETRELROT",'
+                '"GETABS", "SETABSLIN", "SETABSREL", "SETRELLIN", "SETRELROT", '
                 '"ACTIVATE", "DEACTIVATE", "STOP", "INTERLOCK", "ERROR".')
 
         else:
             logging.debug("User command fit no hexapod option")
             self.msg.append(
-                'message type not recognized. Correct types for hexapod are: '
-                '"GETABS", "SETABSLIN", "SETABSREL", "SETRELLIN", "SETRELROT",'
+                'Message type not recognized. Correct types for hexapod are: '
+                '"GETABS", "SETABSLIN", "SETABSREL", "SETRELLIN", "SETRELROT", '
                 '"ACTIVATE", "DEACTIVATE", "STOP", "INTERLOCK", "ERROR".')
 
     # # # # # Polar parsing section # # # # #
-
     def asf_control(self, subcommand):
 
         if "IGNORE" in subcommand:
             logging.debug("ASF ignore command given")
             self.mtcommand_client.ignore_asf()
+            msg = "ASF ignore command sent successfully"
+            self.check_command_sent_successfully(msg)
+
         elif "DEACTIVATE" in subcommand:
             logging.debug("ASF deactivate command given")
             self.mtcommand_client.deactivate_asf()
+            msg = "ASF deactivate command sent successfully"
+            self.check_command_sent_successfully(msg)
+
         elif "REST" in subcommand:
             logging.debug("ASF reset command given")
             self.mtcommand_client.rest_pos_asf()
+            msg = "ASF rest command sent successfully"
+            self.check_command_sent_successfully(msg)
+
         elif "ERROR" in subcommand:
             logging.debug("ASF acknowledge error command given")
             self.mtcommand_client.acknowledge_error_on_asf()
+            msg = "ASF acknowledge error command sent successfully"
+            self.check_command_sent_successfully(msg)
+
         elif "STOP" in subcommand:
             logging.debug("ASF stop command given")
             self.mtcommand_client.stop_asf()
+            msg = "ASF stop command sent successfully"
+            self.check_command_sent_successfully(msg)
+
         elif "PRESET" in subcommand:
             logging.debug("ASF preset position command given")
             self.mtcommand_client.preset_pos_asf()
+            msg = "ASF preset command sent successfully"
+            self.check_command_sent_successfully(msg)
+
         elif "AUTO" in subcommand:
             logging.debug("ASF set automatic mode command given")
             self.mtcommand_client.set_automatic_asf()
+            msg = "ASF auto command sent successfully"
+            self.check_command_sent_successfully(msg)
+
         elif "OFFSET" in subcommand:
             logging.debug("ASF set offset command given")
             self.mtcommand_client.set_offset_asf()
+            msg = "ASF offset command sent successfully"
+            self.check_command_sent_successfully(msg)
+
         elif "?" in subcommand:
             self.msg.append(
                 'Usable types for asf are: "IGNORE", "DEACTIVATE", '
@@ -568,8 +627,8 @@ class UDPCommandParser:
         else:
             logging.debug("User command fit no ASF option")
             self.msg.append(
-                'message type not recognized. Correct types for asf'
-                'are: "IGNORE", "DEACTIVATE", "REST", "ERROR", "STOP",'
+                'Message type not recognized. Correct types for asf '
+                'are: "IGNORE", "DEACTIVATE", "REST", "ERROR", "STOP", '
                 '"PRESET", "AUTO", "OFFSET".')
 
     # # # # # Polar parsing section # # # # #
@@ -579,37 +638,47 @@ class UDPCommandParser:
             logging.debug("Polar get absolute positions command given")
             positions = self.mcast_receiver.get_polar_position()
             msg = f"\n P_soll[deg]: {positions},"
-            self.msg.append(msg)
+            self.check_command_sent_successfully(msg)
 
         elif "IGNORE" in subcommand:
             logging.debug("Polar ignore command given")
             self.mtcommand_client.ignore_polar()
+            msg = "Polar ignore command sent successfully"
+            self.check_command_sent_successfully(msg)
 
         elif "DEACTIVATE" in subcommand:
             logging.debug("Polar deactivate command given")
             self.mtcommand_client.deactivate_polar()
+            msg = "Polar deactivate command sent successfully"
+            self.check_command_sent_successfully(msg)
 
         elif "ACTIVATE" in subcommand:
             logging.debug("Polar activate command given")
             self.mtcommand_client.activate_polar()
+            msg = "Polar activate command sent successfully"
+            self.check_command_sent_successfully(msg)
 
         elif "STOP" in subcommand:
             logging.debug("Polar stop command given")
             self.mtcommand_client.stop_polar()
+            msg = "Polar stop command sent successfully"
+            self.check_command_sent_successfully(msg)
 
         elif "ERROR" in subcommand:
             logging.debug("Polar acknowledge error command given")
             self.mtcommand_client.acknowledge_error_on_polar()
+            msg = "Polar acknowledge error command sent successfully"
+            self.check_command_sent_successfully(msg)
 
-        elif "SETABS" in subcommand:  # TODO add logging here
-            # TODO: Add test for right format from user on numbers.
-            #   Very hacky currently
+        elif "SETABS" in subcommand:
+            # TODO: Add test for right format from user on numbers
+            #  setabs and setrel not fully tested/implemented
             p_soll, v_cmd = subcommand[10:].strip().split(" ", 1)
             logging.debug(p_soll)
             logging.debug(v_cmd)
             self.mtcommand_client.preset_abs_polar(p_soll, v_cmd)
 
-        elif "SETREL" in subcommand:  # TODO add logging here
+        elif "SETREL" in subcommand:
             p_soll, v_cmd = subcommand[10:].strip().split(" ", 1)
             logging.debug(p_soll)
             logging.debug(v_cmd)
@@ -623,7 +692,7 @@ class UDPCommandParser:
         else:
             logging.debug("User command fit no polar option")
             self.msg.append(
-                'message type not recognized. Correct types for polar are: '
+                'Message type not recognized. Correct types for polar are: '
                 '"GETABS", "SETABS", "SETREL", "IGNORE", "ACTIVATE", '
                 '"DEACTIVATE", "STOP", "ERROR".')
 
@@ -632,7 +701,12 @@ class UDPCommandParser:
 
         if "RESETCONNECTION" in subcommand:
             logging.debug("Other command given to reset connection to server")
-            self.reset_connections()  # TODO Fix this threading nuance
+            self.sr_client.close_sr_client()
+
+            msg = "Connection reset successfully"
+            self.check_command_sent_successfully(msg)
+
+            # TODO Fix this threading nuance
 
         elif "?" in subcommand:
             self.msg.append('Usable types for other are: "RESETCONNECTION".')
@@ -640,14 +714,8 @@ class UDPCommandParser:
         else:
             logging.debug("User command fit no other option")
             self.msg.append(
-                'message type not recognized. Correct types for other'
+                'Message type not recognized. Correct types for other'
                 'are: "RESETCONNECTION".')
-
-    # # # # # Reset Connections # # # # #
-    def reset_connections(self):
-        logging.debug("User initiated connection reset to server")
-        self.sr_client.close_sr_client()
-        self.msg.append("Connection reset successfully")
 
     def return_message(self):
         return self.msg
