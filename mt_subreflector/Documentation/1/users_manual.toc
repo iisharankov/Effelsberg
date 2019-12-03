@@ -5,4 +5,3 @@
 \contentsline {subsection}{HEXAPOD}{4}
 \contentsline {subsection}{ASF}{6}
 \contentsline {subsection}{POLAR}{7}
-\contentsline {section}{References}{8}
