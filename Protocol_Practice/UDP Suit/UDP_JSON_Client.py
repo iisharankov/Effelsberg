@@ -1,8 +1,7 @@
 import socket
 import time
 import json
-from playground import humanData # JSON ready message to send
-
+humanData = {}
 # get the local IP address
 localIP = socket.gethostbyname(socket.gethostname())
 buffersize = 8192

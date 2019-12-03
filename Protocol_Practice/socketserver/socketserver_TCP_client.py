@@ -1,7 +1,6 @@
 import socket
 import sys
 
-# destination_address = ("localhost", 9999)
 destination_address = ('localhost', 9999)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 

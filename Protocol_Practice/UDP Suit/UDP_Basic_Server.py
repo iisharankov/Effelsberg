@@ -5,14 +5,13 @@ localIP = socket.gethostbyname(socket.gethostname())
 
 # Sets the port and buffer size as constants for later use
 bufferSize = ***REMOVED***
-# port = 12345
-server_address = ('***REMOVED***', ***REMOVED***)
+server_address = ('', 0)
 
 # Create a datagram Socket
 UDPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 
 # Bind to address and ip
-UDPServerSocket.bind(server_address) #(localIP, port))
+UDPServerSocket.bind(server_address)
 print("UDP server up and is listening for a client to connect")
 
 # Listen for incoming arguments

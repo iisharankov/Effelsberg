@@ -16,7 +16,7 @@ local_fqdn = socket.getfqdn()
 ip_address = socket.gethostbyname(local_hostname)
 print(ip_address)
 # bind the socket to the port 23456, and connect
-server_address = ('***REMOVED***', ***REMOVED***)
+server_address = ('0', 0)
 sock.connect(server_address)
 print(f"connecting to {local_hostname} ({local_fqdn}) with %{ip_address}")
 

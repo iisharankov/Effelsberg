@@ -1,8 +1,8 @@
 import time
 import socket
 status_message = b"Hello World"
-MULTICAST = '***REMOVED***'
-MULTIPORT = ***REMOVED***
+MULTICAST = '' # REMOVED
+MULTIPORT = 0 # REMOVED
 
 
 while True:
