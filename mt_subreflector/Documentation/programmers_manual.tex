@@ -297,8 +297,9 @@ The reverse of decode\_struct, takes in 12 tuples (exact length required) and re
 
 Note: Due to the nature of struct.pack(), this function will still package the message even if one of the tuples in of invalid length. No testing has yet been included to fix this possible bug. 
 
-\subsubsection*{recv\_msg(sock)}
-\emph{sock: socket instance}
+\subsubsection*{recv\_msg(sock, print\_msg=True)}
+\emph{sock: socket instance}\\
+\emph{print\_msg: Boolean. Decides if messages should be printed (useful for avoiding printing during tests)}
 \vspace{10pt}
 
 This function listens to the given (TCP) socket instance given and upon receiving a message, and appends each message to the list called ``messages''. This continues to receive messages until a message is received through the socket that is b''\textbackslash nend'', upon which the while loop is broken and the list-of-strings is returned. This is structured this way as when a user gives an input command, multiple different messages may be triggered that are useful to the user. Due to the nature of the socketserver implementation of MyUDPHandler, the handle() method can only be called once per every user message given (without significant overhead). Thus a list of messages is passed though the return socket one at a time, described in MyUDPHandler.handle() method in the subreflector\_process.py section
