@@ -26,10 +26,10 @@ import logging
 import threading
 from astropy.time import Time
 
-SR_ADDR = ***REMOVED***
+SR_ADDR = "***REMOVED***"
 LOCAL_ADDR = '***REMOVED***'
 SR_PORT = ***REMOVED***
-MULTICAST = (***REMOVED***, ***REMOVED***)
+MULTICAST = ('***REMOVED***', ***REMOVED***)
 
 class SubreflectorClient:
 

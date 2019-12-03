@@ -2,7 +2,7 @@
 import socket
 import struct
 
-mcast_group = ***REMOVED***
+mcast_group = '***REMOVED***'
 
 #server_address = ('', 1600) # sdh information xml
 #server_address = ('', 1601) # telescop information
