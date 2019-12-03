@@ -70,7 +70,8 @@
 #         returnsocket.sendto(msg.encode(), self.client_address)
 #
 #
-
+# UDPTELNET_PORT = ***REMOVED***
+# LOCAL_ADDRESS = '***REMOVED***'  # My personal IP atm
 # dest_address = (LOCAL_ADDRESS, UDPTELNET_PORT)
 #
 # class ThreadingExample(object):
