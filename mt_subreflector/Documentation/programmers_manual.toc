@@ -13,3 +13,4 @@
 \contentsline {subsection}{\numberline {3.5}config.py}{11}
 \contentsline {section}{\numberline {4}Bugs}{12}
 \contentsline {subsection}{\numberline {4.1}socket timeout on first instance of resetting the connection to the subreflector }{12}
+\contentsline {subsection}{\numberline {4.2}Additional bugs will be documented (some are being worked on currently and their descriptions removed)}{12}
