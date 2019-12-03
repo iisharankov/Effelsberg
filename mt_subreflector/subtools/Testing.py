@@ -1,22 +1,3 @@
-# import json
-# import ast
-#
-# with open('getter_data.txt', 'r') as file:
-#     for line in file:
-#         name = line[:15].replace(' ', '')
-#         data = line[43:-2]
-#
-#         data_as_dict = ast.literal_eval(data)
-#         # print(data_as_dict)
-#         print("\n \n" + f"# # # # # # # {name.upper()}" * 5)
-#         for a, b in data_as_dict.items():
-#             # Does not print lines where all values are exactly the same
-#             if sum(b)/len(b) != b[0]: # and sum(b) != 0:  # For just 0 excluded, uncomment this
-#                 print(a.ljust(50), [round(ba, 10) for ba in b])
-
-
-#!/usr/bin/env python
-
 import time
 import json
 import queue
@@ -26,10 +7,7 @@ import logging
 import threading
 from astropy.time import Time
 
-SR_ADDR = "***REMOVED***"
-LOCAL_ADDR = '***REMOVED***'
-SR_PORT = ***REMOVED***
-MULTICAST = ('***REMOVED***', ***REMOVED***)
+from . import config
 
 class SubreflectorClient:
 
@@ -55,14 +33,14 @@ class SubreflectorClient:
             msg = "Connecting to local subreflector in MockSubreflector.py"
             print(msg)
             logging.debug(msg)
-            return LOCAL_ADDR, SR_PORT
+            return config.LOCAL_IP, config.SR_READ_PORT
 
         else:
-            msg = f"Connecting to mt_subreflector. IP: {SR_ADDR} - " \
-                  f"Port: {SR_PORT}"
+            msg = f"Connecting to mt_subreflector. IP: {config.SR_IP} - " \
+                  f"Port: {config.SR_READ_PORT}"
             print(msg)
             logging.debug(msg)
-            return SR_ADDR, SR_PORT
+            return config.SR_IP, config.SR_READ_PORT
 
     def make_connection(self):
         """
