@@ -16,7 +16,7 @@ def main():
     subreflector_client.py which directly connects to the output of the
     subreflector, which listens for the status message which gets multicast by
     that module. The second is start_udp_server, which starts a server listening
-    to any input commands on the computer address and on PORT ***REMOVED***. Any input
+    to any input commands on the computer address and on PORT 15043. Any input
     is passed through the handle method in the MyUDPHandler class, which deals
     with the command it was given via a parse class. start_udp_server is given
     the instance of the sr_client to be able to control/reset the connection.
@@ -782,11 +782,11 @@ class MulticastReceiver:
 
             # Multicast bug: has buffer of 4, and new status isn't added
             # unless there is space, so these blocks go through the queue
-            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
-            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
-            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
-            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
-            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
+            multicastdata_bytes, address = self.sock.recvfrom(1024 * 50)
+            multicastdata_bytes, address = self.sock.recvfrom(1024 * 50)
+            multicastdata_bytes, address = self.sock.recvfrom(1024 * 50)
+            multicastdata_bytes, address = self.sock.recvfrom(1024 * 50)
+            multicastdata_bytes, address = self.sock.recvfrom(1024 * 50)
 
             self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
 

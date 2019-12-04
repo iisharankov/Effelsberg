@@ -4,7 +4,7 @@ import socket
 localIP = socket.gethostbyname(socket.gethostname())
 
 # Sets the port and buffer size as constants for later use
-bufferSize = ***REMOVED***
+bufferSize = 1024
 # port = 12345
 server_address = ('', 0)
 
@@ -18,7 +18,7 @@ print("UDP server up and is listening for a client to connect")
 # Listen for incoming arguments
 firstMsg = True
 short = 'H' * 736
-long = "L" * ***REMOVED***
+long = "L" * 1024
 while True:
 
     # Receives and decodes the messaged given by the client

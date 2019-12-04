@@ -129,7 +129,7 @@ class SubreflectorClient:
                 packet = sock.recv((1760*2))
                 data += packet
 
-                # packets come in size 736 or ***REMOVED***. Add packets until length is
+                # packets come in size 736 or 1024. Add packets until length is
                 # twice the size of the message to ensure full message inside
                 assert len(data) >= 1760 * 2
 

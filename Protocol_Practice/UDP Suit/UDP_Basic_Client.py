@@ -4,7 +4,7 @@ import time
 def recv_msg(sock):
     # Receive data from the server
     try:
-        received = sock.recv(***REMOVED***)
+        received = sock.recv(1024)
         print("Received: {}".format(received.decode('utf-8')))
     except socket.timeout:
         print("Socket timed out, Try again")

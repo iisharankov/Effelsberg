@@ -24,7 +24,7 @@ sock.bind(server_address)
 sock.listen(1)
 flag = True
 short = 'o' * 736
-long = "o" * ***REMOVED***
+long = "o" * 1024
 while True:
     # wait for a connection
     print('waiting for a connection')

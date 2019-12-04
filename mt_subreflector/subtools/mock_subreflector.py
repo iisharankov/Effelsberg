@@ -17,21 +17,21 @@ from . import process_message, config
 sample_msg = process_message.encode_struct(*process_message.sample_message)
 
 # Seperates the message into 2, just like received by the real SR
-first_msg = sample_msg[:***REMOVED***]
-second_msg = sample_msg[***REMOVED***:]
+first_msg = sample_msg[:1024]
+second_msg = sample_msg[1024:]
 
 def main():
     my_receiver = Receiver()
     start_mock_server(my_receiver)
 
 def start_mock_server(my_receiver):
-    t = threading.Thread(target=sender, args=(), name="***REMOVED*** Port")
+    t = threading.Thread(target=sender, args=(), name="Read Port")
     t.daemon = False
     t.start()
 
     my_receiver.create_socket()
     t2 = threading.Thread(target=my_receiver.get_message, args=(),
-                          name="***REMOVED*** Port")
+                          name="Write Port")
     t2.daemon = False
     t2.start()
 
@@ -168,14 +168,14 @@ class Receiver:
 
 
 
-# Part that emulates port ***REMOVED*** and spits out data packets
+# Part that emulates read port and spits out data packets
 def sender():
     # create TCP/IP socket
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         server_address = (config.LOCAL_IP, config.SR_READ_PORT)
 
 
-        # Sets the maximum buffersize of the socket to ***REMOVED***
+        # Sets the maximum buffersize of the socket to 1024
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, config.BUFFER_SIZE)
 
         # SO_REUSEADDR tells kernel to use socket even if in TIME_WAIT state

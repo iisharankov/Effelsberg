@@ -14,11 +14,11 @@ def main():
             try:
                 address = input("Specify the address (empty or zero for local): ")
                 port = int(input("Specify port (see users_manual for defaults): "))
-                assert port > ***REMOVED*** and port < 65535
+                assert port > 1024 and port < 65535
 
                 destination_address = (address, port)
 
-                if address in ['', '***REMOVED***']:
+                if address in ['', '127.0.0.1']:
                     ask_user_between_test_and_real_server()
 
 
@@ -28,7 +28,7 @@ def main():
 
             except AssertionError as E:
                 port = None
-                print("port should be between ***REMOVED*** and 65535, "
+                print("port should be between 1024 and 65535, "
                       "lower values reserved (except 0)")
                 print(E)
 

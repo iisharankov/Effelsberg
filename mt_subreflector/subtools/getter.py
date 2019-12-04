@@ -5,7 +5,7 @@ import socket
 import struct
 from collections import defaultdict
 
-from .config import MULTICAST_IP, MULTICAST_PORT
+from .config import MULTICAST_IP, MULTICAST_PORT, BUFFER_SIZE
 
 
 
@@ -38,7 +38,7 @@ class GetterClass:
 
     def recv_mcast_data(self):
         try:
-            multicastdata_bytes, address = self.sock.recvfrom(***REMOVED*** * 50)
+            multicastdata_bytes, address = self.sock.recvfrom(BUFFER_SIZE * 50)
             self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
             # dumpped = json.dumps(self.data)
             # print(dumpped)
