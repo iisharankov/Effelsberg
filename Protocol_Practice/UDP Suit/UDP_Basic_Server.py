@@ -6,7 +6,7 @@ localIP = socket.gethostbyname(socket.gethostname())
 # Sets the port and buffer size as constants for later use
 bufferSize = ***REMOVED***
 # port = 12345
-server_address = ('***REMOVED***', ***REMOVED***)
+server_address = ('', 0)
 
 # Create a datagram Socket
 UDPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)

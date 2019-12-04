@@ -16,7 +16,7 @@ ip_address = socket.gethostbyname(local_hostname)
 print("working on %s with %s" % (local_hostname, ip_address))
 
 # bind the socket to the port 23456
-server_address = ('***REMOVED***', ***REMOVED***)
+server_address = ('', 0)
 print('starting up on %s port %s' % server_address)
 sock.bind(server_address)
 

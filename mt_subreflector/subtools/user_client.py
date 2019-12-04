@@ -13,7 +13,7 @@ def main():
         while port is None:
             try:
                 address = input("Specify the address (empty or zero for local): ")
-                port = int(input("Specify port (default for SR_program: ***REMOVED***): "))
+                port = int(input("Specify port (see users_manual for defaults): "))
                 assert port > ***REMOVED*** and port < 65535
 
                 destination_address = (address, port)
@@ -51,8 +51,8 @@ def ask_user_between_test_and_real_server():
 
     while True:
         answer = input(
-            'Would you like to connect to the real MT subreflector on address '
-            '***REMOVED***, or start a local instance of a Mock Subreflector '
+            'Would you like to connect to the real MT subreflector (see users'
+            'manual for IP) or start a local instance of a Mock Subreflector '
             'that mimics basic functionality (best for testing or when you '
             'are not connected to the real subreflector)? Type "real" for a '
             'real connection, and "mock" or "test" for the local subreflector ')

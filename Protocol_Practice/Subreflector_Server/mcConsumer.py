@@ -2,12 +2,12 @@
 import socket
 import struct
 
-mcast_group = '***REMOVED***'
+mcast_group = ''
 
-#server_address = ('', 1600) # sdh information xml
-#server_address = ('', 1601) # telescop information
-# server_address = ('', 1602) # sdh json
-#server_address = ('', ***REMOVED***)  READING
+#server_address = ('', 0) # sdh information xml
+#server_address = ('', 0) # telescop information
+# server_address = ('', 0) # sdh json
+#server_address = ('', 0)  READING
 
 # sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
