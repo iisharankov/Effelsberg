@@ -5,7 +5,7 @@ import socket
 import pickle
 import threading
 
-from . import process_message, config
+from subtools import process_message, config
 
 
 # for a, b in zip(sample_msg, origional_way):
@@ -47,7 +47,6 @@ class Receiver:
         with self.lock:
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
-            print("Socket shutdown")
 
     @staticmethod
     def unpack(ctype, buf):
@@ -102,6 +101,7 @@ class Receiver:
         # BasicStructure class that can extract the command type
 
         try:
+
             _basic_unpack = self.unpack(process_message.BasicStructure, data)
             assert _basic_unpack.command in [100, 101, 102, 106]
 
@@ -139,7 +139,6 @@ class Receiver:
                 self.hexapod_phase_lin = unpacked_data.phase_lin
                 self.hexapod_p_xlin = unpacked_data.p_xlin
                 self.hexapod_p_ylin = unpacked_data.p_ylin
-                self.hexapod_p_zlin = unpacked_data.p_zlin
                 self.hexapod_p_zlin = unpacked_data.p_zlin
                 self.hexapod_v_lin = unpacked_data.v_lin
                 self.hexapod_mode_rot = unpacked_data.mode_rot

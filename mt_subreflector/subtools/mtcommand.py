@@ -15,7 +15,8 @@ class MTCommand:
         self.startflag = 0x1DFCCF1A
         self.endflag = 0xA1FCCFD1
         self.seconds = 10001  # initial value, overwritten by structure methods
-        self.servertype = self.get_server_address(config.USE_TEST_SERVER)
+        self.servertype = None
+        self.get_server_address(config.USE_TEST_SERVER)
 
     def start_mtcommand(self):
 
@@ -38,13 +39,13 @@ class MTCommand:
         if test_server:
             msg = "Connected to local subreflector in MockSubreflector.py"
             logging.debug(msg)
-            return '', config.SR_WRITE_PORT
+            self.servertype = '', config.SR_WRITE_PORT
 
         else:
             msg = f"Connected to mt_subreflector. IP: {config.SR_IP} - " \
                   f"Port: {config.SR_WRITE_PORT}"
             logging.debug(msg)
-            return config.SR_IP, config.SR_WRITE_PORT
+            self.servertype = config.SR_IP, config.SR_WRITE_PORT
 
     def send_command(self, packaged_msg):
         """
@@ -63,32 +64,6 @@ class MTCommand:
             self.msg = "sent successfully"
         except ConnectionError or BrokenPipeError as E:
             self.msg = f"There was a socket error: {E}"
-
-    @staticmethod
-    def pack(ctype_instance):
-        """
-        Takes a ctype structure (created by a "..._to_struct" method, and
-        packs it into a byte string so it can be sent via a socket
-        :param ctype_instance: instance of a ctypes structure
-        :return: byte string
-        """
-        buf = ctypes.string_at(ctypes.byref(ctype_instance),
-                               ctypes.sizeof(ctype_instance))
-        return buf
-
-    @staticmethod
-    def unpack(ctype, buf):
-        """
-        Opposite of pack. Takes a bytes string and creates a ctypes structure
-        instance given the appropriate structure to model from
-        :param ctype:  Ctype structure class for reference
-        :param buf: bytes string to unpack to class instance
-        :return: instance of a ctypes structure
-        """
-        cstring = ctypes.create_string_buffer(buf)
-        ctype_instance = ctypes.cast(ctypes.pointer(cstring),
-                                     ctypes.POINTER(ctype)).contents
-        return ctype_instance
 
     def interlock_command_to_struct(self, command):
 
@@ -142,6 +117,32 @@ class MTCommand:
             self.startflag, size_of_struct, self.seconds,
             cmd_polar, fashion, p_soll, v_cmd, self.endflag)
 
+    @staticmethod
+    def pack(ctype_instance):
+        """
+        Takes a ctype structure (created by a "..._to_struct" method, and
+        packs it into a byte string so it can be sent via a socket
+        :param ctype_instance: instance of a ctypes structure
+        :return: byte string
+        """
+        buf = ctypes.string_at(ctypes.byref(ctype_instance),
+                               ctypes.sizeof(ctype_instance))
+        return buf
+
+    @staticmethod
+    def unpack(ctype, buf):
+        """
+        Opposite of pack. Takes a bytes string and creates a ctypes structure
+        instance given the appropriate structure to model from
+        :param ctype:  Ctype structure class for reference
+        :param buf: bytes string to unpack to class instance
+        :return: instance of a ctypes structure
+        """
+        cstring = ctypes.create_string_buffer(buf)
+        ctype_instance = ctypes.cast(ctypes.pointer(cstring),
+                                     ctypes.POINTER(ctype)).contents
+        return ctype_instance
+
     def encapsulate_command(self, type_of_command, command_msg):
         """
         encapsulate_command takes in the parameter command_msg, and finds the
@@ -155,7 +156,9 @@ class MTCommand:
         :return: None, but calls to send message to subreflector via socket
         """
 
-        self.structure = None  # In case already set
+        self.msg = None# In case already set. Note: exceptions below in methods
+        # that set self.msg won't reach this so msg isn't lost
+        self.structure = None
 
         # Creates a unique timestamp to differentiate messages
         now = datetime.datetime.now()
@@ -299,8 +302,6 @@ class MTCommand:
 
 
     # # # # # 4.4 Subreflector positioning instruction set # # # # #
-
-
     def deactivate_hxpd(self):
         cmd_hxpd = 101
         fashion = 1
@@ -383,9 +384,9 @@ class MTCommand:
             assert -195 <= zlin <= 45
             assert 0.001 <= v_lin <= 10
 
-        except AssertionError as E:
+        except AssertionError:
             logging.exception("Paramater(s) out of range")
-            print(f"Assertion Error: {E}")
+            self.msg = f"Assertion error, parameters out of range. See manual"
         else:
             cmd_hxpd = 101
             fashion = 2
@@ -407,9 +408,9 @@ class MTCommand:
             assert 0.000_01 <= v_rot <= 0.1
 
 
-        except AssertionError as E:
+        except AssertionError:
             logging.exception("Paramater(s) out of range")
-            print(f"Assertion Error: {E}")
+            self.msg = f"Assertion error, parameters out of range. See manual"
         else:
             cmd_hxpd = 101
             fashion = 2
@@ -476,13 +477,14 @@ class MTCommand:
 
         else:
             cmd_polar = 102
-            fashion = 4
+            fashion = 3
 
             data = (cmd_polar, fashion, p_soll, v_cmd)
             self.encapsulate_command("polar", data)
 
     def preset_rel_polar(self, p_soll, v_cmd):
         # Todo do same as hexapod and only have absolute
+        # Todo make check so relative
         try:
             assert 195 >= p_soll >= -195
             assert 3 >= v_cmd >= 0.000_01
@@ -511,7 +513,7 @@ class MTCommand:
             assert time_offset_mode == 3 or time_offset_mode == 4
         except Exception as E:
             print(E)
-            print("Error, time_offset_mode (second entry) should be 3 or 4")
+            self.msg = "Error, time_offset_mode should be 3 or 4"
         else:
             cmd_time = 107
             fashion = fashion_value

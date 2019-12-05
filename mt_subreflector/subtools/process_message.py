@@ -1448,6 +1448,7 @@ class HexapodStructure(ctypes.Structure):
                 ("message_length", ctypes.c_int32),
                 ("command_serial_number", ctypes.c_int32),
                 ("command", ctypes.c_int16),
+                # I don't know why next one is 'fashion' instead of just mode
                 ("fashion", ctypes.c_int16),
                 ("mode_lin", ctypes.c_int16),
                 ("anzahl_lin", ctypes.c_uint16),

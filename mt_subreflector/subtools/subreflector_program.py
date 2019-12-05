@@ -679,6 +679,7 @@ class CommandParser:
             self.mtcommand_client.preset_abs_polar(p_soll, v_cmd)
 
         elif "SETREL" in subcommand:
+            # TODO make sure rel asserts final dest within limits like hxpd does
             p_soll, v_cmd = subcommand[10:].strip().split(" ", 1)
             logging.debug(p_soll)
             logging.debug(v_cmd)
