@@ -11,7 +11,7 @@ class MTCommand:
     def __init__(self):
         # Initializes the socket to the Subreflector
         self.structure = None
-        self.msg = None
+        self.mt_command_status = None
         self.startflag = 0x1DFCCF1A
         self.endflag = 0xA1FCCFD1
         self.seconds = 10001  # initial value, overwritten by structure methods
@@ -61,9 +61,9 @@ class MTCommand:
                           f"port: {self.sock.getsockname()[1]}.")
 
             self.sock.send(packaged_msg)
-            self.msg = "sent successfully"
+            self.mt_command_status = "sent successfully"
         except ConnectionError or BrokenPipeError as E:
-            self.msg = f"There was a socket error: {E}"
+            self.mt_command_status = f"There was a socket error: {E}"
 
     def interlock_command_to_struct(self, command):
 
@@ -156,7 +156,7 @@ class MTCommand:
         :return: None, but calls to send message to subreflector via socket
         """
 
-        self.msg = None# In case already set. Note: exceptions below in methods
+        self.mt_command_status = None# In case already set. Note: exceptions below in methods
         # that set self.msg won't reach this so msg isn't lost
         self.structure = None
 
@@ -377,53 +377,34 @@ class MTCommand:
 
         self.encapsulate_command("hxpd", data)
 
-    def preset_abs_lin_hxpd(self, xlin, ylin, zlin, v_lin):
+    def preset_abs_lin_hxpd(self, xlin, ylin, zlin, vlin,
+                            xrot, yrot, zrot, vrot):
         try:
             assert -225 <= xlin <= 225
             assert -175 <= ylin <= 175
             assert -195 <= zlin <= 45
-            assert 0.001 <= v_lin <= 10
+            assert 0.001 <= vlin <= 10
+            assert -0.95 <= xrot <= 0.95
+            assert -0.95 <= yrot <= 0.95
+            assert -0.95 <= zrot <= 0.95
+            assert 0.000_01 <= vrot <= 0.1
 
         except AssertionError:
             logging.exception("Paramater(s) out of range")
-            self.msg = f"Assertion error, parameters out of range. See manual"
+            self.mt_command_status = f"Assertion error, parameters out of range. See manual"
         else:
             cmd_hxpd = 101
             fashion = 2
             mode_lin = 3
-            mode_rot = 0
-            anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
-
-            data = (cmd_hxpd, fashion,
-                    mode_lin, anzahl_lin, phase_lin, xlin, ylin, zlin, v_lin,
-                    mode_rot, anzahl_rot, phase_rot, 0, 0, 0, 0)
-
-            self.encapsulate_command("hxpd", data)
-
-    def preset_abs_rot_hxpd(self, xrot, yrot, zrot, v_rot):
-        try:
-            assert -0.95 <= xrot <= 0.95
-            assert -0.95 <= yrot <= 0.95
-            assert -0.95 <= zrot <= 0.95
-            assert 0.000_01 <= v_rot <= 0.1
-
-
-        except AssertionError:
-            logging.exception("Paramater(s) out of range")
-            self.msg = f"Assertion error, parameters out of range. See manual"
-        else:
-            cmd_hxpd = 101
-            fashion = 2
-            mode_lin = 0
             mode_rot = 3
             anzahl_lin, phase_lin, anzahl_rot, phase_rot = 0, 0, 0, 0
 
             data = (cmd_hxpd, fashion,
-                    mode_lin, anzahl_lin, phase_lin, 0, 0, 0, 0,
-                    mode_rot, anzahl_rot, phase_rot, xrot, yrot, zrot,
-                    v_rot)
+                    mode_lin, anzahl_lin, phase_lin, xlin, ylin, zlin, vlin,
+                    mode_rot, anzahl_rot, phase_rot, xrot, yrot, zrot, vrot)
 
             self.encapsulate_command("hxpd", data)
+
 
     # # # # # Polarization Drive # # # # #
     # TODO: Track_El needs to be added to polar, in docs. but what is it for ?
@@ -513,7 +494,7 @@ class MTCommand:
             assert time_offset_mode == 3 or time_offset_mode == 4
         except Exception as E:
             print(E)
-            self.msg = "Error, time_offset_mode should be 3 or 4"
+            self.mt_command_status = "Error, time_offset_mode should be 3 or 4"
         else:
             cmd_time = 107
             fashion = fashion_value

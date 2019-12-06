@@ -41,7 +41,7 @@ def assert_hxpd_values(mt, fashion,
     assert mt.structure.p_yrot == yrot
     assert mt.structure.p_zrot == zrot
     assert mt.structure.v_rot == vrot
-    assert mt.msg == "sent successfully"
+    assert mt.mt_command_status == "sent successfully"
     
 def assert_asf_values(mt, mode, offset_dr_nr, offset_active):
     assert isinstance(mt.structure, process_message.AsfStructure)
@@ -61,7 +61,7 @@ def assert_asf_values(mt, mode, offset_dr_nr, offset_active):
     assert mt.structure.offset_value9 == 0
     assert mt.structure.offset_value10 == 0
     assert mt.structure.offset_value11 == 0
-    assert mt.msg == "sent successfully"
+    assert mt.mt_command_status == "sent successfully"
 
 
 # # # # # # # #  TEST CLASS  # # # # # # # #
@@ -70,7 +70,7 @@ class TestMTCommand:
 
     def test_init(self, mt):
         assert mt.structure is None
-        assert mt.msg is None
+        assert mt.mt_command_status is None
         assert mt.startflag == 0x1DFCCF1A
         assert mt.endflag == 0xA1FCCFD1
         assert mt.seconds == 10001
@@ -90,9 +90,9 @@ class TestMTCommand:
         mt.get_server_address(True)
         mt.start_mtcommand()
 
-        # Sends a command, checking if msg was correct (proves msg was sent)
+        # Sends a command, checking if mt_command_status was correct (proves mt_command_status was sent)
         mt.send_command(b"Hello World")
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
     def test_interlock_command_to_struct(self, mt):
         full_command = 106, 2000, 42, 0
@@ -229,27 +229,27 @@ class TestMTCommand:
             raise E
 
     def test_encapsulate_command(self, mt):
-        mt.msg = None
+        mt.mt_command_status = None
         mt.encapsulate_command("interlock", (0, 0, 0, 0))
         assert isinstance(mt.structure, process_message.InterlockStructure)
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
-        mt.msg = None
+        mt.mt_command_status = None
         mt.encapsulate_command("asf", (0, 0, 0, 0, 0, 0, 0, 0,
                                        0, 0, 0, 0, 0, 0, 0))
         assert isinstance(mt.structure, process_message.AsfStructure)
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
-        mt.msg = None
+        mt.mt_command_status = None
         mt.encapsulate_command("hxpd", (0, 0, 0, 0, 0, 0, 0, 0,
                                         0, 0, 0, 0, 0, 0, 0, 0))
         assert isinstance(mt.structure, process_message.HexapodStructure)
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
-        mt.msg = None
+        mt.mt_command_status = None
         mt.encapsulate_command("polar", (0, 0, 0, 0))
         assert isinstance(mt.structure, process_message.PolarStructure)
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
     """ The rest of these tests cannot test just the method as each method 
     calls encapsulate_command(), so we test that the message is sent, and the
@@ -262,14 +262,14 @@ class TestMTCommand:
         assert mt.structure.command == 106
         assert mt.structure.mode == 2000
         assert mt.structure.elevation == 40
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
         mt.set_mt_elevation(90)
 
         assert mt.structure.command == 106
         assert mt.structure.mode == 2000
         assert mt.structure.elevation == 90
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
     def test_activate_mt(self, mt):
         mt.activate_mt()
@@ -277,7 +277,7 @@ class TestMTCommand:
         assert mt.structure.command == 106
         assert mt.structure.mode == 2
         assert mt.structure.elevation == 0.0
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
     def test_deactivate_mt(self, mt):
         mt.deactivate_mt()
@@ -285,7 +285,7 @@ class TestMTCommand:
         assert mt.structure.command == 106
         assert mt.structure.mode == 1
         assert mt.structure.elevation == 0.0
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
     # # # # # # # # # # ASF # # # # # # # # # #
     def test_ignore_asf(self, mt):
@@ -356,10 +356,10 @@ class TestMTCommand:
                          (226, 175, 45, 10), (225, 176, 45, 10),
                          (225, 175, 46, 10), (225, 175, 45, 10.5),])
     def test_preset_abs_lin_hxpd_raise_error(self, mt, preset_tuple):
-        mt.msg = None
+        mt.mt_command_status = None
         xlin, ylin, zlin, vlin = preset_tuple
         mt.preset_abs_lin_hxpd(xlin, ylin, zlin, vlin)
-        assert mt.msg == "Assertion error, parameters out of range. See manual"
+        assert mt.mt_command_status == "Assertion error, parameters out of range. See manual"
 
     @pytest.mark.parametrize(
         "preset_tuple", [(-0.95, -0.95, -0.95, 0.000_01),
@@ -380,10 +380,10 @@ class TestMTCommand:
          (0.96, 0.95, 0.95, 0.1), (0.95, 0.96, 0.95, 0.1),
          (0.95, 0.95, 0.96, 0.1), (0.95, 0.95, 0.95, 0.15), ])
     def test_preset_abs_rot_hxpd_raise_error(self, mt, preset_tuple):
-        mt.msg = None
+        mt.mt_command_status = None
         xrot, yrot, zrot, vrot = preset_tuple
         mt.preset_abs_rot_hxpd(xrot, yrot, zrot, vrot)
-        assert mt.msg == "Assertion error, parameters out of range. See manual"
+        assert mt.mt_command_status == "Assertion error, parameters out of range. See manual"
 
     # # # # # # # # # # POLAR # # # # # # # # # #
     def test_ignore_polar(self, mt):
@@ -393,7 +393,7 @@ class TestMTCommand:
         assert mt.structure.mode == 0
         assert mt.structure.p_soll == 0.0
         assert mt.structure.v_cmd == 0.0
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
     def test_activate_polar(self, mt):
         mt.activate_polar()
@@ -402,7 +402,7 @@ class TestMTCommand:
         assert mt.structure.mode == 2
         assert mt.structure.p_soll == 0.0
         assert mt.structure.v_cmd == 0.0
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
     def test_deactivate_polar(self, mt):
         mt.deactivate_polar()
@@ -411,7 +411,7 @@ class TestMTCommand:
         assert mt.structure.mode == 1
         assert mt.structure.p_soll == 0.0
         assert mt.structure.v_cmd == 0.0
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
     def test_stop_polar(self, mt):
         mt.stop_polar()
@@ -420,7 +420,7 @@ class TestMTCommand:
         assert mt.structure.mode == 7
         assert mt.structure.p_soll == 0.0
         assert mt.structure.v_cmd == 0.0
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
     def test_acknowledge_error_on_polar(self, mt):
         mt.acknowledge_error_on_polar()
@@ -429,7 +429,7 @@ class TestMTCommand:
         assert mt.structure.mode == 15
         assert mt.structure.p_soll == 0.0
         assert mt.structure.v_cmd == 0.0
-        assert mt.msg == "sent successfully"
+        assert mt.mt_command_status == "sent successfully"
 
     def test_preset_abs_polar(self, mt):
 
@@ -438,7 +438,7 @@ class TestMTCommand:
             assert mt.structure.mode == 3
             assert mt.structure.p_soll == val1
             assert mt.structure.v_cmd == val2
-            assert mt.msg == "sent successfully"
+            assert mt.mt_command_status == "sent successfully"
 
         mt.preset_abs_polar(5, 1)
         helper(5, 1)
@@ -462,7 +462,7 @@ class TestMTCommand:
             assert mt.structure.mode == 4
             assert mt.structure.p_soll == val1
             assert mt.structure.v_cmd == val2
-            assert mt.msg == "sent successfully"
+            assert mt.mt_command_status == "sent successfully"
 
         mt.preset_rel_polar(5, 1)
         helper(5, 1)

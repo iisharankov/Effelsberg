@@ -196,8 +196,6 @@ class CommandParser:
     def __init__(self, sr_client):
 
         self.msg = []  # Message given back to user
-        self.obsprefix = None  # prefix found while parsing user command
-        self.commandprefix = None  # prefix found while parsing user command
 
         # These are instances that are used within methods
         self.mcast_receiver = MulticastReceiver()  # For recieving data from SR
@@ -208,22 +206,21 @@ class CommandParser:
         self.sr_client = sr_client
 
 
-    def check_command_sent_successfully(self, msg):
-        if self.mtcommand_client.msg == "sent successfully":
-            self.msg.append(msg)
+    def check_command_sent_successfully(self, user_message):
+        if self.mtcommand_client.mt_command_status == "sent successfully":
+            self.mtcommand_client.mt_command_status = None
+            self.msg.append(user_message)
         else:
             self.msg.append(
                 f"There was an issue with mtcommand and the "
                 f"command was not sent to the subreflector. "
                 f"mtcommand error message is: \n "
-                f"{self.mtcommand_client.msg}")
+                f"{self.mtcommand_client.mt_command_status}")
 
 
     # # # # # General parsing section # # # # #
     def probe_command(self, usr_input):
         self.msg = []
-        self.obsprefix = None
-        self.commandprefix = None
         logging.debug("Parser values reset")
 
         try:
@@ -372,7 +369,7 @@ class CommandParser:
                 " x_lin: between -225 and 225 \n" \
                 " y_lin: between -175 and 175 \n" \
                 " z_lin: between -195 and 45 \n" \
-                " x_rot, y_rot, z_r: between -0.95 and 0.95"
+                " x_rot, y_rot, z_rot: between -0.95 and 0.95"
 
 
         if "GETABS" in subcommand:
@@ -385,155 +382,6 @@ class CommandParser:
                   f"\n hxpd_yrot: {positions[4]}," \
                   f"\n hxpd_zrot: {positions[5]}"
             self.msg.append(msg)
-        
-        
-        elif subcommand[:9] in ["SETABSLIN", "SETRELLIN", "SETABSROT", "SETRELROT"]:
-            
-            try:
-                if ',' in subcommand:
-                    self.msg.append("Do not put commas between numbers")
-
-                values = subcommand[9:].strip().replace(',', '').split(" ")
-                new_val = [float(i) for i in values]  # change str to float
-                logging.debug(f'new_vals are: {new_val}')
-
-                assert len(new_val) == 4  # Make sure there's exactly 4 entries
-
-            except AssertionError:
-                msg = "Assertion error. Improper number in parameters or " \
-                      "wrong type. SETABS/SETREL takes 4 entries"
-                self.msg.append(msg)
-                logging.exception(msg)
-
-            except ValueError as E:
-                msg = f"Error converting entries to floats. Other " \
-                      f"characters may be present. Error: {E}"
-                logging.exception(msg)
-                self.msg.append(msg)
-
-            else:
-                if "SETABSLIN" in subcommand:
-                    logging.debug("Hexapod set linear absolute command given")
-
-                    try:
-                        assert -225 <= new_val[0] <= 225
-                        assert -175 <= new_val[1] <= 175
-                        assert -195 <= new_val[2] <= 45
-                        assert .001 <= new_val[3] <= 10
-
-                    except AssertionError:
-                        self.msg.append(helper_msg('absolute'))
-                        logging.exception("Absolute inputs go over saftey "
-                                          "limits set on Hexapod. Aborted")
-
-                    else:
-                        self.mtcommand_client.preset_abs_lin_hxpd(
-                            new_val[0], new_val[1], new_val[2], new_val[3])
-
-
-                        msg = f"Set absolute values for linear drives on " \
-                              f"hexapod to \n" \
-                              f" xlin: {new_val[0]}, ylin: {new_val[1]}," \
-                              f" zlin: {new_val[2]}, v_lin: {new_val[3]}"
-
-                        self.check_command_sent_successfully(msg)
-
-
-                elif "SETABSROT" in subcommand:
-                    logging.debug("Hexapod set absolute rotational"
-                                  " command given")
-
-                    try:
-                        assert -0.95 <= new_val[0] <= 0.95
-                        assert -0.95 <= new_val[1] <= 0.95
-                        assert -0.95 <= new_val[2] <= 0.95
-                        assert 0.001 <= new_val[3] <= 0.10
-
-                    except AssertionError:
-                        self.msg.append(helper_msg('absolute'))
-                        logging.exception("Absolute inputs go over saftey "
-                                          "limits set on Hexapod. Aborted")
-
-                    else:
-                        self.mtcommand_client.preset_abs_rot_hxpd(
-                            new_val[0], new_val[1], new_val[2], new_val[3])
-
-                        msg = f"Set absolute values for rotational drives on " \
-                              f"hexapod to \n" \
-                              f" xrot: {new_val[0]}, yrot: {new_val[1]}," \
-                              f" zrot: {new_val[2]}, v_rot: {new_val[3]}"
-
-                        self.check_command_sent_successfully(msg)
-
-                elif "SETRELLIN" in subcommand:
-                    logging.debug("Hexapod set relative linear command given")
-                    cur_vals = self.mcast_receiver.get_hexapod_positions()
-                    new_xlin = cur_vals[0] + new_val[0]
-                    new_ylin = cur_vals[1] + new_val[1]
-                    new_zlin = cur_vals[2] + new_val[2]
-                    velocity = new_val[3]
-
-                    try:
-                        assert -225 <= new_xlin <= 225
-                        assert -175 <= new_ylin <= 175
-                        assert -195 <= new_zlin <= 45
-                        assert .001 <= velocity <= 10
-
-                    except AssertionError:
-                        self.msg.append(helper_msg('relative'))
-                        logging.exception("Relative inputs given go over saftey"
-                                          " limits set on Hexapod. Aborted")
-                    else:
-                        self.mtcommand_client.preset_abs_lin_hxpd(
-                            new_xlin, new_ylin, new_zlin, velocity)
-
-                        msg = "added relative values for linear drives on " \
-                              "hexapod. Moving to values: \n" \
-                             f" xlin: {new_xlin}, ylin: {new_ylin}," \
-                             f" zlin: {new_zlin}, v_lin: {velocity}"
-
-                        self.check_command_sent_successfully(msg)
-
-                elif "SETRELROT" in subcommand:
-                    logging.debug("Hexapod set relative rotational "
-                                  "command given")
-                    positions = self.mcast_receiver.get_hexapod_positions()
-                    new_xrot = positions[3] + new_val[0]
-                    new_yrot = positions[4] + new_val[1]
-                    new_zrot = positions[5] + new_val[2]
-                    velocity = new_val[3]
-
-                    try:
-                        assert -0.95 <= new_xrot <= 0.95
-                        assert -0.95 <= new_yrot <= 0.95
-                        assert -0.95 <= new_zrot <= 0.95
-                        assert 0.001 <= velocity <= 0.10
-
-                    except AssertionError:
-                        self.msg.append(helper_msg('relative'))
-                        logging.exception("Relative inputs given go over saftey"
-                                          " limits set on Hexapod. Aborted")
-
-                    else:
-                        self.mtcommand_client.preset_abs_rot_hxpd(
-                            new_xrot, new_yrot, new_zrot, velocity)
-
-                        msg = "added relative values for rotational drive on " \
-                              "hexapod. Moving to values: \n" \
-                             f" xrot: {new_xrot}, yrot: {new_yrot}," \
-                             f" zrot: {new_zrot}, v_rot: {velocity}"
-
-                        self.check_command_sent_successfully(msg)
-                else:
-                    # Safety, but should be unreachable
-                    self.msg.append(
-                        'Subcommand not recognized. Possible entries are: '
-                        '"SETABSLIN", "SETABSROT", "SETRELLIN", or "SETRELROT"')
-
-        elif "DEACTIVATE" in subcommand:
-            logging.debug("Hexapod deactivation command given")
-            self.mtcommand_client.deactivate_hxpd()
-            self.check_command_sent_successfully("Hexapod deactivated")
 
         elif "ACTIVATE" in subcommand:
             logging.debug("Hexapod activation command given")
@@ -545,15 +393,152 @@ class CommandParser:
             self.mtcommand_client.stop_hxpd()
             self.check_command_sent_successfully("Hexapod stopped")
 
+
+        elif subcommand[:9] in ["SETABS", "SETREL"]:
+            
+            try:
+                if ',' in subcommand:
+                    self.msg.append("Do not put commas between numbers")
+
+                values = subcommand[9:].strip().replace(',', '').split(" ")
+                new_val = [float(i) for i in values]  # change str to float
+                logging.debug(f'new_vals are: {new_val}')
+
+                assert len(new_val) == 8  # Make sure there's exactly 8 entries
+
+            except AssertionError:
+                msg = "Assertion error. Improper number of parameters or " \
+                      "wrong type. SETABS/SETREL takes 8 entries. See manual"
+                self.msg.append(msg)
+                logging.exception(msg)
+
+            except ValueError as E:
+                msg = f"Error converting entries to floats. Other " \
+                      f"characters may be present. Error: {E}"
+                logging.exception("Error converting entries to floats")
+                self.msg.append(msg)
+
+            else:
+                if self.mcast_receiver.check_hexapod_activated() and \
+                        "SETABS" in subcommand:
+                    logging.debug("Hexapod set linear absolute command given")
+
+                    try:
+                        assert -225 <= new_val[0] <= 225
+                        assert -175 <= new_val[1] <= 175
+                        assert -195 <= new_val[2] <= 45
+                        assert .001 <= new_val[3] <= 10
+                        assert -0.95 <= new_val[4] <= 0.95
+                        assert -0.95 <= new_val[5] <= 0.95
+                        assert -0.95 <= new_val[6] <= 0.95
+                        assert 0.001 <= new_val[7] <= 0.10
+
+                    except AssertionError:
+                        self.msg.append(helper_msg('absolute'))
+                        logging.exception("Absolute inputs go over saftey "
+                                          "limits set on Hexapod. Aborted")
+
+                    else:
+                        self.mtcommand_client.preset_abs_lin_hxpd(
+                            new_val[0], new_val[1], new_val[2], new_val[3],
+                            new_val[4], new_val[5], new_val[6], new_val[7])
+
+
+                        msg = f"Set absolute values for linear drives on " \
+                              f"hexapod to \n" \
+                              f" xlin: {new_val[0]}, ylin: {new_val[1]}," \
+                              f" zlin: {new_val[2]}, v_lin: {new_val[3]}," \
+                              f" xrot: {new_val[4]}, yrot: {new_val[5]}," \
+                              f" zrot: {new_val[6]}, v_rot: {new_val[7]}"
+
+                        self.check_command_sent_successfully(msg)
+
+                elif self.mcast_receiver.check_hexapod_activated() and \
+                        "SETREL" in subcommand:
+                    logging.debug("Hexapod set relative command given")
+                    cur_vals = self.mcast_receiver.get_hexapod_positions()
+                    new_xlin = cur_vals[0] + new_val[0]
+                    new_ylin = cur_vals[1] + new_val[1]
+                    new_zlin = cur_vals[2] + new_val[2]
+                    new_vlin = new_val[3]
+                    new_xrot = cur_vals[3] + new_val[4]
+                    new_yrot = cur_vals[4] + new_val[5]
+                    new_zrot = cur_vals[5] + new_val[6]
+                    new_vrot = new_val[7]
+
+                    try:
+                        assert -225 <= new_xlin <= 225
+                        assert -175 <= new_ylin <= 175
+                        assert -195 <= new_zlin <= 45
+                        assert .001 <= new_vlin <= 10
+                        assert -0.95 <= new_xrot <= 0.95
+                        assert -0.95 <= new_yrot <= 0.95
+                        assert -0.95 <= new_zrot <= 0.95
+                        assert 0.001 <= new_vrot <= 0.10
+
+                    except AssertionError:
+                        self.msg.append(helper_msg('relative'))
+                        logging.exception("Relative inputs given go over saftey"
+                                          " limits set on Hexapod. Aborted")
+                    else:
+                        self.mtcommand_client.preset_abs_lin_hxpd(
+                            new_xlin, new_ylin, new_zlin, new_vlin,
+                            new_xrot, new_yrot, new_zrot, new_vrot)
+
+                        msg = "added relative values for linear drives on " \
+                              "hexapod. Moving to values: \n" \
+                             f" xlin: {new_xlin}, ylin: {new_ylin}," \
+                             f" zlin: {new_zlin}, v_lin: {new_vlin}" \
+                             f" xrot: {new_xrot}, yrot: {new_yrot}," \
+                             f" zrot: {new_zrot}, v_rot: {new_vrot}"
+
+                        self.check_command_sent_successfully(msg)
+
+                elif not self.mcast_receiver.check_hexapod_activated():
+                    self.msg.append("Hexapod is deactivated. Activate it first,"
+                                    " then you can send commands.")
+
+                else:
+                    # Safety, but should be unreachable
+                    self.msg.append(
+                        'Subcommand not recognized. Possible entries are: '
+                        '"SETABS", "SETREL"')
+
+        elif "DEACTIVATE" in subcommand:
+
+            if self.mcast_receiver.check_hexapod_activated():
+
+                if any(self.mcast_receiver.check_hexapod_is_stationary()):
+                    logging.debug("Hexapod deactivation command given")
+                    self.mtcommand_client.deactivate_hxpd()
+                    self.check_command_sent_successfully("Hexapod deactivated")
+
+                else:
+                    self.msg.append("Can't deactivate Hexapod while moving")
+
+            else:
+                self.msg.append("Hexapod is deactivated already")
+
         elif "INTERLOCK" in subcommand:
-            logging.debug("Hexapod interlock command given")
-            self.mtcommand_client.interlock_hxpd()
-            self.check_command_sent_successfully("Hexapod interlock")
+
+            if self.mcast_receiver.check_hexapod_activated():
+                logging.debug("Hexapod interlock command given")
+                self.mtcommand_client.interlock_hxpd()
+                self.check_command_sent_successfully("Hexapod interlock")
+
+            else:
+                self.msg.append("Hexapod is deactivated. Please activate first")
             
         elif "ERROR" in subcommand:
-            logging.debug("Hexapod acknowledge error command given")
-            self.mtcommand_client.acknowledge_error_on_hxpd()
-            self.check_command_sent_successfully("Hexapod error acknowledged")
+
+            if self.mcast_receiver.check_hexapod_activated():
+
+                logging.debug("Hexapod acknowledge error command given")
+                self.mtcommand_client.acknowledge_error_on_hxpd()
+                self.check_command_sent_successfully("Hexapod error acknowledged")
+
+            else:
+                self.msg.append("Hexapod is deactivated. Please activate first")
 
 
         elif "?" in subcommand:
@@ -791,8 +776,6 @@ class MulticastReceiver:
 
             self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
 
-            # print("tesT", self.data["status-data-active-surface"]["Elevation-angle[deg]"])
-
         except OSError or ConnectionError as E:
             logging.exception(f"Error occurred receiving multicast data: {E}")
 
@@ -813,8 +796,6 @@ class MulticastReceiver:
         # Deep copy to avoid any issues with memory linkage
         logging.debug("New message deep copied to instance variable")
         self.mcast_data = copy.deepcopy(self.data)
-        logging.debug(
-            f'Interlock elv self.last: {self.mcast_data["status-data-active-surface"]["Elevation-angle[deg]"]}')
 
     def get_new_status(self):
         try:
@@ -859,8 +840,8 @@ class MulticastReceiver:
 
     def get_elevation(self):
         self.get_new_status()
-
         mcast_data = self.mcast_data  # local to prevent race condition
+
         elevation = mcast_data["status-data-active-surface"]["elevation-angle[deg]"]
         return elevation
 
@@ -904,7 +885,8 @@ class MulticastReceiver:
         except AssertionError:
             flag = False
 
-        return flag
+        finally:
+            return flag
 
     def check_hexapod_is_stationary(self):
         self.get_new_status()
