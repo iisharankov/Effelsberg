@@ -168,7 +168,7 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
 
     def setup(self):
         self.msg = []
-        logging.debug("#" * 50 + "Message received from user")
+        logging.debug("#" * 50)
 
     def handle(self):
 
@@ -178,12 +178,17 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
 
         self.msg = self.server.command_parser.return_message()
         self.msg.append('\nend')
-        logging.debug(f"All messages are: {self.msg}")
 
-        logging.debug("Setting up returnsocket")
         returnsocket = self.request[1]
         for each_msg in self.msg:
             returnsocket.sendto(each_msg.encode(), self.client_address)
+        logging.debug("Messages returned to user successfully")
+
+    def finish(self):
+        self.msg = []
+        logging.debug("#" * 50)
+
+
 
 
 class CommandParser:
@@ -221,6 +226,7 @@ class CommandParser:
     # # # # # General parsing section # # # # #
     def probe_command(self, usr_input):
         self.msg = []
+
         logging.debug("Parser values reset")
 
         try:
@@ -228,9 +234,8 @@ class CommandParser:
             telescope, subref, command, \
                 *subcommand = usr_input.strip().split(":")
 
-            logging.debug(f"User gave values {telescope}:{subref}:"
-                          f"{command}:{subcommand}")
-
+            logging.debug(f"User gave values {telescope}, {subref}, "
+                          f"{command}, {subcommand}")
             # Replace is done here individually instead of above as sometimes
             # subcommand will have numbers separated by spaces from user
             telescope = telescope.replace(" ", '')
@@ -240,7 +245,7 @@ class CommandParser:
         except ValueError:
             msg = 'Structure of message should be ' \
                   '"EFFELSBERG:MTSUBREFLECTOR:[command]:[subcommand]".'
-
+            logging.debug(f'User input was "{usr_input}"')
             self.msg.append(msg)
         else:
 
@@ -337,7 +342,7 @@ class CommandParser:
             logging.debug("Interlock get elevation command given")
             elevation = self.mcast_receiver.get_elevation()
 
-            self.msg.append(f"\n Interlock elevation: {elevation}")
+            self.msg.append(f"Interlock elevation: {elevation}")
 
         elif "?" in subcommand:
             self.msg.append('Usable types for interlock are: "ACTIVATE", '
@@ -421,8 +426,11 @@ class CommandParser:
             else:
                 if self.mcast_receiver.check_hexapod_activated() and \
                         "SETABS" in subcommand:
-                    logging.debug("Hexapod set linear absolute command given")
 
+                    logging.debug("Hexapod set linear absolute command given")
+                    if any(self.mcast_receiver.check_hexapod_is_stationary()):
+                        self.msg.append("Hexapod already moving, new positions"
+                                        " will override old ones")
                     try:
                         assert -225 <= new_val[0] <= 225
                         assert -175 <= new_val[1] <= 175
@@ -455,6 +463,12 @@ class CommandParser:
 
                 elif self.mcast_receiver.check_hexapod_activated() and \
                         "SETREL" in subcommand:
+
+                    if any(self.mcast_receiver.check_hexapod_is_stationary()):
+                        self.msg.append(
+                            "Hexapod already moving, new positions will "
+                            "override old ones")
+
                     logging.debug("Hexapod set relative command given")
                     cur_vals = self.mcast_receiver.get_hexapod_positions()
                     new_xlin = cur_vals[0] + new_val[0]
@@ -722,7 +736,7 @@ class MulticastReceiver:
         self.data = None
         self.thread = None
         self.mcast_data = None
-        self.init_multicast()
+        # self.init_multicast()
 
     def init_multicast(self):
         """" want to use a context manager here, but it's important to have a
@@ -746,32 +760,12 @@ class MulticastReceiver:
             logging.exception("There was an exception setting "
                               "up the multicast receiver")
 
-    def start_mcast_receiver_thread(self):
-
-        try:
-            logging.debug(f"Creating Thread")
-            self.thread = threading.Thread(
-                target=self.get_new_status, args=(), name='update_mcast')
-
-            self.thread.daemon = False  # Demonize thread
-            logging.debug(f"Threading set to {self.thread.daemon}.")
-            self.thread.start()
-
-        except Exception as Er:
-            print(Er)
-            logging.exception("Exception starting Startup_Subreflector_Client")
-
-
     def recv_mcast_data(self):
         try:
             logging.debug("Recieved new multicast packet")
 
-            # Multicast bug: has buffer of 4, and new status isn't added
-            # unless there is space, so these blocks go through the queue
-            multicastdata_bytes, address = self.sock.recvfrom(1024 * 50)
-            multicastdata_bytes, address = self.sock.recvfrom(1024 * 50)
-            multicastdata_bytes, address = self.sock.recvfrom(1024 * 50)
-            multicastdata_bytes, address = self.sock.recvfrom(1024 * 50)
+            # Multicast bug: please refer to bugs in documentation
+            logging.debug("Getting message from the multicast server")
             multicastdata_bytes, address = self.sock.recvfrom(1024 * 50)
 
             self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
@@ -783,6 +777,7 @@ class MulticastReceiver:
         # These should always be the same/True, only corruption or changes to
         # the fundamental structure of the message contents will change these.
         try:
+            logging.debug("Asserting static data is valid")
             assert self.data["start-flag"] == 0x1DFCCF1A
             assert self.data["length-of-data-packet"] == 1760
             assert self.data["id=status-message(50)"] == 50
@@ -797,12 +792,27 @@ class MulticastReceiver:
         logging.debug("New message deep copied to instance variable")
         self.mcast_data = copy.deepcopy(self.data)
 
+    def close_multicast(self):
+
+        # Could not get shutdown to work properly, But got the functionality
+        # I needed without it.
+        # self.sock.shutdown(socket.SHUT_RDWR)
+        self.sock.close()
+        self.sock = None
+        logging.debug("multicast socket closed")
+
     def get_new_status(self):
         try:
             logging.debug("getting_new_mcast")
+
+            if not self.sock is None:
+                self.close_multicast()
+
+            self.init_multicast()
             self.recv_mcast_data()
             self.assert_static_data()
             self.deepcopy_mcast_data()
+            self.close_multicast()
 
         except Exception as E:
             msg = f"There was an exception receiving and processing a " \
@@ -842,8 +852,12 @@ class MulticastReceiver:
         self.get_new_status()
         mcast_data = self.mcast_data  # local to prevent race condition
 
-        elevation = mcast_data["status-data-active-surface"]["elevation-angle[deg]"]
-        return elevation
+        try:
+            elevation = mcast_data["status-data-active-surface"]["elevation-angle[deg]"]
+            return elevation
+        except Exception as E:
+            logging.exception("There was an exception")
+
 
     def get_polar_position(self):
         self.get_new_status()
