@@ -1387,13 +1387,16 @@ def recv_msg(sock, print_msg=True):
 
         messages = []
         while True:
+
             received = sock.recv(4096)
-            time.sleep(0.1)
 
             if received != b'\nend':
+
+                logging.debug(f"Msg received from socket: {received}")
                 messages.append(received.decode('utf-8'))
                 if print_msg:
                     print(f"Received: {received.decode('utf-8')}")
+
 
             else:
                 break

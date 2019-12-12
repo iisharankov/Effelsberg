@@ -7,14 +7,6 @@ from collections import defaultdict
 
 from .config import MULTICAST_IP, MULTICAST_PORT, BUFFER_SIZE
 
-
-
-
-# TODO: Compare with multicast in python files, also:
-# isharankov@be2:/opt/operatorguis/MCServer$ less MulticastDataServer.py
-
-
-
 class GetterClass:
 
     def __init__(self):
@@ -42,13 +34,6 @@ class GetterClass:
             self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
             # dumpped = json.dumps(self.data)
             # print(dumpped)
-            # print(type(self.data))
-
-
-            # print('\n')
-            # print(self.data['status-data-irig-b-system'][
-            #           'current-time-as-modified-julian-day(mjd)'])
-            # print(self.data["status-data-active-surface"]["Elevation-angle[deg]"])
             return self.data
 
         except OSError or ConnectionError as E:

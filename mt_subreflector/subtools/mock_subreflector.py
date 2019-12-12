@@ -5,7 +5,7 @@ import socket
 import pickle
 import threading
 
-from subtools import process_message, config
+from . import process_message, config
 
 
 # for a, b in zip(sample_msg, origional_way):
@@ -66,7 +66,7 @@ class Receiver:
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (config.LOCAL_IP, config.SR_WRITE_PORT)
-        self.sock.settimeout(3)
+        # self.sock.settimeout(3)
 
 
         # SO_REUSEADDR tells kernel to use socket even if in TIME_WAIT state

@@ -88,7 +88,7 @@ class SubreflectorClient:
         self.multicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM,
                                             socket.IPPROTO_UDP)
         self.multicast_sock.setsockopt(socket.IPPROTO_IP,
-                                       socket.IP_MULTICAST_TTL, 32 ) #1)
+                                       socket.IP_MULTICAST_TTL, 0 ) #1)
 
         logging.debug("Starting Multicast queue reader in thread")
         t = threading.Thread(target=self.send_mcast, args=(), name="Queue_Mcast")
@@ -171,13 +171,10 @@ class SubreflectorClient:
 
                 # Expected length of the message
                 # Only manipulated data and sends to multicast every 10 mesages
-                elif len(full_msg) == 1760 and count%10 == 0:
+                elif len(full_msg) == 1760 and count%5 == 0:
 
                     # Optional pickling of the message for storage
                     # pickle.dump(full_msg, open("Subreflector_Output.p", 'ab'))
-
-
-                    # print(f"\rmessage sent x{count/10}", end='')
 
                     processed_msg = process_message.package_msg(full_msg)
 

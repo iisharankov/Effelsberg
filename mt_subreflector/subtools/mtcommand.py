@@ -57,8 +57,8 @@ class MTCommand:
         # Sends the given command though the socket to the Subreflector
         try:
             logging.debug(f"Sending packaged_ctype to Subreflector at "
-                          f"address: {self.sock.getsockname()[0]}, "
-                          f"port: {self.sock.getsockname()[1]}.")
+                          f"address: {self.servertype[0]}, "
+                          f"port: {self.servertype[1]}.")
 
             self.sock.send(packaged_msg)
             self.mt_command_status = "sent successfully"
