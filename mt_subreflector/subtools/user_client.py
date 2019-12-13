@@ -1,11 +1,12 @@
 import socket
 import time
+import logging
 
 from subtools import subreflector_start_server, mock_start_server, process_message, config
 
 def main():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.settimeout(4)
+        sock.settimeout(5)
 
         # This block offers user to choose the IP/Port combo, and makes sure a
         # connection is made to the specified combo
@@ -37,14 +38,35 @@ def main():
                 print(f"OSError occured: {E}")
 
         while True:
-            time.sleep(0.1)
-            data = input("What to send: ")
+            try:
+                data = input("What to send: ")
 
-            # Connect to server and send data
-            sock.sendto(str.encode(data), destination_address)
-            print("Sent:     {}".format(data))
 
-            process_message.recv_msg(sock)
+                # Connect to server and send data
+                sock.sendto(str.encode(data), destination_address)
+
+                #TODO: Not the best implementation, TRY AGAIN
+                newlist = []
+                for i in range(2):
+                    received_messages = process_message.recv_msg(sock, False)
+                    print(received_messages)
+                    sock.settimeout(0.5)
+                    if not received_messages is None:
+                        newlist = received_messages
+                        # print(newlist)
+
+                for i in newlist:
+                    print(f"Received: {i}")
+
+            except Exception as E:
+                logging.exception("There was an exception")
+            #
+            # except TimeoutError:
+            #     print("SOCKET TIMEOUT REACHED")
+            #     logging.debug("SOCKET.TIMEOUT REACHED")
+            #     process_message.recv_msg(sock, True)
+
+
 
 
 def ask_user_between_test_and_real_server():
@@ -60,13 +82,13 @@ def ask_user_between_test_and_real_server():
         answer = answer.lower().strip().replace(' ', '')
 
         if answer == "real":
-            subreflector_start_server.main()
-            # config.USE_TEST_SERVER = False  # Todo, make a way to change this var?
+            subreflector_start_server.main(False)
+
             break
 
         elif answer == 'mock' or answer == 'test':
             mock_start_server.main()
-            subreflector_start_server.main()
+            subreflector_start_server.main(True)
             break
 
         else:

@@ -1,7 +1,7 @@
 from .mock_subreflector import main as mock_main
 
 
-def main(*args, **kwargs):
+def main():
     mock_main()
 
 

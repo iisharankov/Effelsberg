@@ -13,11 +13,10 @@ from .config import SR_IP, SR_READ_PORT, LOCAL_IP
 
 class SubreflectorClient:
 
-    def __init__(self):
+    def __init__(self, is_test_server):
         self.sock = None
         self.lock = threading.Lock()
-        self.chosen_server = self.get_server_adderss(config.USE_TEST_SERVER)
-        print(config.USE_TEST_SERVER)
+        self.chosen_server = self.get_server_adderss(is_test_server)
         self.connection_flag = False
         self.starttime = time.time()
         self.mcast_queue = queue.LifoQueue(maxsize=10)
@@ -76,10 +75,14 @@ class SubreflectorClient:
                 logging.debug(f"TCP Socket connected at IP "
                               f"Address {self.sock.getsockname()[0]} and "
                               f"port {self.sock.getsockname()[1]}")
+
                 self.sock.settimeout(8)
                 logging.debug(f"socket timeout set to {self.sock.gettimeout()}")
+
+                # Start loop to receive data
                 self.receive_data(self.sock)
-            except ConnectionError as E:
+
+            except ConnectionError or OSError as E:
                 logging.exception("Error connecting to server. May not be found")
                 print(f"Could not connect to the Subreflector: {E}")
 

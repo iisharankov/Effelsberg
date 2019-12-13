@@ -10,7 +10,7 @@ import socketserver
 from . import mtcommand, subreflector_client, config
 
 
-def main():
+def main(is_test_server):
     """
     Connects to two servers. One is in
     subreflector_client.py which directly connects to the output of the
@@ -33,14 +33,14 @@ def main():
     try:
 
         # makes sure parameter is bool or int (bool is subclass of int)
-        assert isinstance(config.USE_TEST_SERVER, int)
+        assert isinstance(is_test_server, int)
 
         logging.debug("Start Startup_Subreflector_Client instance")
-        sr_client = ClientModule()
+        sr_client = ClientModule(is_test_server)
         sr_client.start_sr_client()
 
         # Start the udp_client
-        udp_client = initialize_threaded_udp_server(sr_client)
+        udp_client = initialize_threaded_udp_server(sr_client, is_test_server)
 
     except Exception as E:
         logging.exception("An exception occurred starting the threaded classes")
@@ -59,10 +59,10 @@ class ClientModule:
     until closed manually.
     """
 
-    def __init__(self):
+    def __init__(self, is_test_server):
         self.thread = None
         self.stop_threads = False
-        self.srclient = subreflector_client.SubreflectorClient()
+        self.srclient = subreflector_client.SubreflectorClient(is_test_server)
 
     def shutdown(self):
         templock = threading.Lock()
@@ -84,7 +84,6 @@ class ClientModule:
 
             self.thread.daemon = False  # Demonize thread
             logging.debug(f"Threading set to {self.thread.daemon}.")
-            time.sleep(0.5)
             self.thread.start()
             logging.debug(f"Thread started successfully with "
                           f"thread ID: {self.thread.ident}")
@@ -124,13 +123,13 @@ class ThreadingUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
           background, and to hang until closed manually.
           """
 
-    def __init__(self, sr_client, *args, **kwargs):
+    def __init__(self, sr_client, is_test_server, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.command_parser = CommandParser(sr_client)
+        self.command_parser = CommandParser(sr_client, is_test_server)
         logging.debug("Initialized ThreadingUDPServer")
 
 
-def initialize_threaded_udp_server(sr_client):
+def initialize_threaded_udp_server(sr_client, is_test_server):
     """
     This function sets up a non-daemon thread to initiate the
     ThreadingUDPServer in the background. This is the code
@@ -140,7 +139,7 @@ def initialize_threaded_udp_server(sr_client):
 
     logging.debug(f"ThreadingUDPServer accessing address:"
                   f" {config.LOCAL_IP}, port: {config.UDP_CLIENT_PORT}")
-    server = ThreadingUDPServer(sr_client,
+    server = ThreadingUDPServer(sr_client, is_test_server,
                                 (config.LOCAL_IP, config.UDP_CLIENT_PORT),
                                 MyUDPHandler, )
 
@@ -189,8 +188,6 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
         logging.debug("#" * 50)
 
 
-
-
 class CommandParser:
     """
     Instantiating this class takes a string and parses it to return the correct
@@ -198,7 +195,7 @@ class CommandParser:
     TODO: Complete doc string
     """
 
-    def __init__(self, sr_client):
+    def __init__(self, sr_client, is_test_server):
 
         self.msg = []  # Message given back to user
 
@@ -206,7 +203,7 @@ class CommandParser:
         self.mcast_receiver = MulticastReceiver()  # For recieving data from SR
 
         # Sending commands to SR
-        self.mtcommand_client = mtcommand.MTCommand()
+        self.mtcommand_client = mtcommand.MTCommand(is_test_server)
         self.mtcommand_client.start_mtcommand()
         self.sr_client = sr_client
 
@@ -248,6 +245,8 @@ class CommandParser:
             logging.debug(f'User input was "{usr_input}"')
             self.msg.append(msg)
         else:
+            if telescope == "no":
+                time.sleep(10)
 
             if telescope != "EFFELSBERG":
                 logging.info('Input did not start with "EFFELSBERG"')
@@ -447,7 +446,7 @@ class CommandParser:
                                           "limits set on Hexapod. Aborted")
 
                     else:
-                        self.mtcommand_client.preset_abs_lin_hxpd(
+                        self.mtcommand_client.preset_abs_hxpd(
                             new_val[0], new_val[1], new_val[2], new_val[3],
                             new_val[4], new_val[5], new_val[6], new_val[7])
 
@@ -495,7 +494,7 @@ class CommandParser:
                         logging.exception("Relative inputs given go over saftey"
                                           " limits set on Hexapod. Aborted")
                     else:
-                        self.mtcommand_client.preset_abs_lin_hxpd(
+                        self.mtcommand_client.preset_abs_hxpd(
                             new_xlin, new_ylin, new_zlin, new_vlin,
                             new_xrot, new_yrot, new_zrot, new_vrot)
 

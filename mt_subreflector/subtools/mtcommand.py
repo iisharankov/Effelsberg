@@ -8,7 +8,7 @@ from . import config, process_message
 
 
 class MTCommand:
-    def __init__(self):
+    def __init__(self, is_test_server):
         # Initializes the socket to the Subreflector
         self.structure = None
         self.mt_command_status = None
@@ -16,7 +16,7 @@ class MTCommand:
         self.endflag = 0xA1FCCFD1
         self.seconds = 10001  # initial value, overwritten by structure methods
         self.servertype = None
-        self.get_server_address(config.USE_TEST_SERVER)
+        self.get_server_address(is_test_server)
 
     def start_mtcommand(self):
 
@@ -377,7 +377,7 @@ class MTCommand:
 
         self.encapsulate_command("hxpd", data)
 
-    def preset_abs_lin_hxpd(self, xlin, ylin, zlin, vlin,
+    def preset_abs_hxpd(self, xlin, ylin, zlin, vlin,
                             xrot, yrot, zrot, vrot):
         try:
             assert -225 <= xlin <= 225
