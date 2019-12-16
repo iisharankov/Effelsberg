@@ -5,7 +5,7 @@ import socket
 import pickle
 import threading
 
-from . import process_message, config
+from subtools import process_message, config
 
 
 # for a, b in zip(sample_msg, origional_way):

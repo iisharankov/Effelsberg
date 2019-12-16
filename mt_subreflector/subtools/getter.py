@@ -5,7 +5,7 @@ import socket
 import struct
 from collections import defaultdict
 
-from .config import MULTICAST_IP, MULTICAST_PORT, BUFFER_SIZE
+from subtools.config import MULTICAST_IP, MULTICAST_PORT, BUFFER_SIZE
 
 class GetterClass:
 

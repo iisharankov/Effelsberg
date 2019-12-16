@@ -8,8 +8,8 @@ import struct
 import logging
 import threading
 
-from . import process_message, config
-from .config import SR_IP, SR_READ_PORT, LOCAL_IP
+from subtools import process_message, config
+from subtools.config import SR_IP, SR_READ_PORT, LOCAL_IP
 
 class SubreflectorClient:
 

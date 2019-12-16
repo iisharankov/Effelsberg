@@ -70,7 +70,6 @@ class MTCommand:
         size_of_struct = ctypes.sizeof(process_message.InterlockStructure())
 
         cmd_il, mode, elevation, reserve = command
-        # self.seconds = 12345  # Temporary to have identical stamps to compare
         self.structure = process_message.InterlockStructure(
             self.startflag, size_of_struct, self.seconds, 
             cmd_il, mode, elevation, reserve, self.endflag)
@@ -84,7 +83,6 @@ class MTCommand:
             offset_value6, offset_value7, offset_value8, offset_value9, \
             offset_value10, offset_value11 = command
 
-        # self.seconds = 12345  # Temporary to have identical stamps to compare
         self.structure = process_message.AsfStructure(
             self.startflag,
             size_of_struct, self.seconds, cmd_as, mode, offset_dr_nr,
@@ -112,7 +110,6 @@ class MTCommand:
         size_of_struct = ctypes.sizeof(process_message.PolarStructure())
 
         cmd_polar, fashion, p_soll, v_cmd = command
-        # self.seconds = 12345  # Temporary to have identical stamps to compare
         self.structure = process_message.PolarStructure(
             self.startflag, size_of_struct, self.seconds,
             cmd_polar, fashion, p_soll, v_cmd, self.endflag)
