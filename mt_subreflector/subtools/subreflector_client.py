@@ -1,15 +1,13 @@
 #!/usr/bin/env python
 
 import time
-import json
 import queue
 import socket
-import struct
 import logging
 import threading
 
-from subtools import process_message, config
-from subtools.config import SR_IP, SR_READ_PORT, LOCAL_IP
+from . import process_message, config
+from .config import SR_IP, SR_READ_PORT, LOCAL_IP
 
 class SubreflectorClient:
 
@@ -23,10 +21,8 @@ class SubreflectorClient:
         self.do_run = True
 
     def shutdown(self):
-        print('SubreflectorClient shutdown')
-        templock = threading.Lock()
-
-        with templock:
+        print('SubreflectorClient shutdown initiated')
+        with self.lock:
             self.do_run = False
 
     def main(self):
@@ -99,10 +95,10 @@ class SubreflectorClient:
         t.start()
 
     def send_mcast(self):
-        templock = threading.Lock()
 
         while True:
-            with templock:
+            with self.lock:
+
                 status_message = self.mcast_queue.get()
                 multicast_address = (config.MULTICAST_IP, config.MULTICAST_PORT)
                 self.multicast_sock.sendto(status_message, multicast_address)
@@ -196,8 +192,8 @@ class SubreflectorClient:
                         logging.exception("Queue filled up!")
 
             finally:
-                with self.lock:
-                     if self.connection_flag:
+                if self.connection_flag:
+                    with self.lock:
                         self.connection_flag = False  # resets the flag
                         logging.debug("Socket closed")
                         break
@@ -216,4 +212,4 @@ if __name__ == '__main__':
         level=logging.DEBUG, format='%(asctime)s - %(levelname)s- %(message)s',
         datefmt='%d-%b-%y %H:%M:%S')
 
-    SubreflectorClient().main()
+    SubreflectorClient(True).main()

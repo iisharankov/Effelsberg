@@ -735,6 +735,7 @@ class MulticastReceiver:
         self.data = None
         self.thread = None
         self.mcast_data = None
+        self.lock = threading.Lock()
         # self.init_multicast()
 
     def init_multicast(self):
@@ -761,10 +762,9 @@ class MulticastReceiver:
 
     def recv_mcast_data(self):
         try:
-            logging.debug("Recieved new multicast packet")
 
             # Multicast bug: please refer to bugs in documentation
-            logging.debug("Getting message from the multicast server")
+            logging.debug("Receiving new multicast packet")
             multicastdata_bytes, address = self.sock.recvfrom(1024 * 50)
 
             self.data = json.loads(str(multicastdata_bytes.decode('utf-8')))
@@ -789,13 +789,10 @@ class MulticastReceiver:
     def deepcopy_mcast_data(self):
         # Deep copy to avoid any issues with memory linkage
         logging.debug("New message deep copied to instance variable")
-        self.mcast_data = copy.deepcopy(self.data)
+        with self.lock:
+            self.mcast_data = copy.deepcopy(self.data)
 
     def close_multicast(self):
-
-        # Could not get shutdown to work properly, But got the functionality
-        # I needed without it.
-        # self.sock.shutdown(socket.SHUT_RDWR)
         self.sock.close()
         self.sock = None
         logging.debug("multicast socket closed")
@@ -932,4 +929,4 @@ class MulticastReceiver:
         return flag_for_linear, flag_for_rotation
 
 if __name__ == '__main__':
-    main()
+    main(True)

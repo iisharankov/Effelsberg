@@ -2,11 +2,10 @@ import socket
 import time
 import logging
 
-from subtools import subreflector_start_server, mock_start_server, process_message, config
+from subtools import subreflector_start_server, mock_start_server, process_message
 
 def main():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.settimeout(5)
 
         # This block offers user to choose the IP/Port combo, and makes sure a
         # connection is made to the specified combo
@@ -45,18 +44,9 @@ def main():
                 # Connect to server and send data
                 sock.sendto(str.encode(data), destination_address)
 
-                #TODO: Not the best implementation, TRY AGAIN
-                newlist = []
-                for i in range(2):
-                    received_messages = process_message.recv_msg(sock, False)
-                    print(received_messages)
-                    sock.settimeout(0.5)
-                    if not received_messages is None:
-                        newlist = received_messages
-                        # print(newlist)
-
-                for i in newlist:
-                    print(f"Received: {i}")
+                #TODO: Not the best implementation
+                received_messages = process_message.recv_msg(sock, False)
+                print(f"Received: {received_messages}")
 
             except Exception as E:
                 logging.exception("There was an exception")

@@ -5,7 +5,7 @@ import socket
 import pickle
 import threading
 
-from subtools import process_message, config
+from . import process_message, config
 
 
 # for a, b in zip(sample_msg, origional_way):
@@ -23,6 +23,7 @@ second_msg = sample_msg[1024:]
 def main():
     my_receiver = Receiver()
     start_mock_server(my_receiver)
+    print("MOCK STARTED")
 
 def start_mock_server(my_receiver):
     t = threading.Thread(target=sender, args=(), name="Read Port")
@@ -75,7 +76,6 @@ class Receiver:
 
         self.sock.bind(server_address)
         self.sock.listen(2)
-
 
     def get_message(self):
 

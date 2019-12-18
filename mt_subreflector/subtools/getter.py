@@ -79,20 +79,20 @@ while True:
     time.sleep(1)
     data = sock_inst.recv_mcast_data()
     print(json.dumps(data, indent=2))
-    count -= -1  # Some men want to watch the world burn
-    for nesteddict, master in zip(headers, masters):  # this is your data from the web
-        # master = defaultdict(list)
-        for k, v in data[nesteddict].items():
-            master[k].append(v)
 
-    if count%25 == 0:
-        with open('getter_data.txt', 'w+') as file:
-            print(count)
-            # file.write(str(count) + "\n")
-            for nesteddict, master in zip(headers, masters):
-                # takes useful info (word after 2nd '-'), and pads to left side
-                just_name = nesteddict.split('-')[2].ljust(15)
-                file.write(just_name + str(master) + "\n")
-
-
+    # for nesteddict, master in zip(headers, masters):
+    #     # master = defaultdict(list)
+    #     for k, v in data[nesteddict].items():
+    #         master[k].append(v)
+    #
+    # if count%25 == 0:
+    #     with open('getter_data.txt', 'w+') as file:
+    #         print(count)
+    #         # file.write(str(count) + "\n")
+    #         for nesteddict, master in zip(headers, masters):
+    #             # takes useful info (word after 2nd '-'), and pads to left side
+    #             just_name = nesteddict.split('-')[2].ljust(15)
+    #             file.write(just_name + str(master) + "\n")
+    #
+    #
 
