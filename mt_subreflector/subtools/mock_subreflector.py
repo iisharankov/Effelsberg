@@ -165,8 +165,6 @@ class Receiver:
                 self.interlock_mode = self.unpacked_data.mode
 
 
-
-
 # Part that emulates read port and spits out data packets
 def sender():
     # create TCP/IP socket

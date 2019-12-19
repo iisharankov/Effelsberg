@@ -80,6 +80,15 @@ while True:
     data = sock_inst.recv_mcast_data()
     print(json.dumps(data, indent=2))
 
+    """
+    The below code makes a master json of the status output received on the 
+    multicast server where every entry in the status message is a list of ints/
+    floats rather than single float values. This code is very useful as one can
+    connect to the real subreflector, and start sending commands to the asf, 
+    hexapod, etc., and this code block would track all the changes over time.
+    With some simple plotting and analysis, one can then make graphs for all
+    the parameters and see how they change over time.
+    """
     # for nesteddict, master in zip(headers, masters):
     #     # master = defaultdict(list)
     #     for k, v in data[nesteddict].items():
